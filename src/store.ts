@@ -1,8 +1,9 @@
 import BTree, { defaultComparator as btreeDefaultComparator } from 'sorted-btree';
+import util from 'util';
 
 function defaultComparator(a: any, b: any) {
-  if (Buffer.isBuffer(a) && Buffer.isBuffer(b)) {
-    return a.compare(b);
+  if (util.types.isUint8Array(a) && util.types.isUint8Array(b)) {
+    return Buffer.compare(a, b);
   }
   return btreeDefaultComparator(a, b);
 }
