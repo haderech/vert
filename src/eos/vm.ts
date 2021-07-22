@@ -153,11 +153,11 @@ export class EosVM extends Vert {
       // print
       prints: (msg) => {
         log.debug('prints');
-        console.info(this.readString(msg));
+        console.info(this.memory.readString(msg));
       },
       prints_l: (msg, len) => {
         log.debug('prints_l');
-        console.info(this.readString(msg, len));
+        console.info(this.memory.readString(msg, len));
       },
 
       // system
@@ -168,11 +168,11 @@ export class EosVM extends Vert {
       },
       eosio_assert: (test, msg) => {
         log.debug('eosio_assert');
-        assert(test, 'eosio_assert: ' + this.readString(msg));
+        assert(test, 'eosio_assert: ' + this.memory.readString(msg));
       },
       eosio_assert_message: (test, msg, msg_len) => {
         log.debug('eosio_assert_message');
-        assert(test, 'eosio_assert_message: ' + this.readString(msg, msg_len));
+        assert(test, 'eosio_assert_message: ' + this.memory.readString(msg, msg_len));
       },
       eosio_assert_code: (test, code) => {
         log.debug('eosio_assert_code');

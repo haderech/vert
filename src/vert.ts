@@ -1,4 +1,5 @@
 import bunyan from 'bunyan';
+import { Memory } from './memory';
 
 export const log = bunyan.createLogger({ name: 'blanc-vm' });
 log.level(process.env.LOG_LEVEL);
@@ -8,10 +9,14 @@ export type Dispatcher = Record<string, any>;
 export class Vert {
   protected module: WebAssembly.Module;
   protected instance: WebAssembly.Instance;
-  protected memory: WebAssembly.Memory;
+  protected _memory: Memory;
   protected imports: any;
 
   public ready: Promise<void>;
+
+  get memory() {
+    return this._memory;
+  }
 
   constructor(bytes: Uint8Array) {
     this.ready = new Promise((resolve, reject) => {
@@ -21,27 +26,12 @@ export class Vert {
           .then(result => {
             this.module = result.module;
             this.instance = result.instance;
-            this.memory = this.instance.exports.memory as WebAssembly.Memory;
+            this._memory = new Memory(this.instance.exports.memory as WebAssembly.Memory);
             resolve();
           }, error => {
             reject(error);
           });
       });
     });
-  }
-
-  protected readString(offset: number, length: number = 0) {
-    if (this.memory) {
-      if (!length) {
-        const memoryView = new Uint8Array(this.memory.buffer, 0, this.memory.buffer.byteLength);
-        for (let i = offset; i < memoryView.length; ++i) {
-          if (!memoryView[i]) {
-            length = i - offset + 1;
-            break;
-          }
-        }
-      }
-      return Buffer.from(new Uint8Array(this.memory.buffer, offset, length)).toString();
-    }
   }
 }
