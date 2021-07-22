@@ -27,9 +27,9 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
   private seq = 0;
   private _size = 0;
 
-  static create(code: bigint, scope: bigint, table: bigint, payer: bigint): Table {
+  static create(code: bigint, scope: bigint, table: bigint, payer: bigint, store: Store<Buffer,KeyValueObject> = TableStore): Table {
     const prefix = Table.serializePrefix(code, scope, table);
-    const tab = <Table>Tables.createPrefix(Table.serializePrefix(code, scope, table));
+    const tab = store.createPrefix(Table.serializePrefix(code, scope, table)) as Table;
     tab._code = code;
     tab._scope = scope;
     tab._table = table;
@@ -38,12 +38,12 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
     return tab;
   }
 
-  static find(code: bigint, scope: bigint, table: bigint) {
-    return <Table>Tables.getPrefix(Table.serializePrefix(code, scope, table));
+  static find(code: bigint, scope: bigint, table: bigint, store: Store<Buffer,KeyValueObject> = TableStore) {
+    return store.getPrefix(Table.serializePrefix(code, scope, table)) as Table;
   }
 
-  static getById(id: number) {
-    return <Table>Tables.getPrefixById(id);
+  static getById(id: number, store: Store<Buffer,KeyValueObject> = TableStore) {
+    return store.getPrefixById(id) as Table;
   }
 
   static serializePrefix(code: bigint, scope: bigint, table: bigint): Buffer {
@@ -104,7 +104,7 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
     super.delete(key);
     this._size--;
     if (this._size === 0) {
-      Tables.deletePrefix(this.prefix());
+      this.store.deletePrefix(this.prefix());
     }
   }
 
@@ -122,4 +122,4 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
   }
 }
 
-export const Tables = new Store<Buffer,KeyValueObject>(Table);
+export const TableStore = new Store<Buffer,KeyValueObject>(Table);
