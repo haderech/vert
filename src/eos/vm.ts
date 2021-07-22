@@ -5,6 +5,7 @@ import { nameToBigInt64 } from "./utils";
 import { Table, KeyValueObject } from './table';
 import { IteratorCache } from "./iterator-cache";
 
+type ptr = number;
 type i32 = number;
 type i64 = bigint;
 type f32 = number;
@@ -38,7 +39,7 @@ export class EosVM extends Vert {
   protected imports = {
     env: {
       // action
-      read_action_data: (msg, len) => {
+      read_action_data: (msg: ptr, len: i32): i32 => {
         log.debug('read_action_data');
         if (!len) {
           return this.context.data.length;
@@ -49,39 +50,55 @@ export class EosVM extends Vert {
         return size;
       }
       ,
-      action_data_size: () => {
+      action_data_size: (): i32 => {
         log.debug('action_data_size');
         return this.context.data.length;
       },
-      require_recipient: (name) => {
+      require_recipient: (name: i64): void => {
         log.debug('require_recipient');
         // TODO
       },
-      require_auth: (name) => {
+      require_auth: (name: i64): void => {
         log.debug('require_auth');
         // TODO
       },
-      has_auth: (name) => {
+      has_auth: (name: i64): boolean => {
         log.debug('has_auth');
         // TODO
         return true;
       },
-      require_auth2: (name, permission) => {
+      require_auth2: (name: i64, permission: i64): void => {
         log.debug('require_auth2');
         // TODO
       },
-      is_account: (name) => {
+      is_account: (name: i64): boolean => {
         log.debug('is_account');
         // TODO
         return true;
       },
-      current_receiver: () => {
+      send_inline: (action: ptr, size: i32): void => {
+        // TODO
+      },
+      send_context_free_inline: (action: ptr, size: i32): void => {
+        // TODO
+      },
+      publication_time: (): i64 => {
+        // TODO
+        return 0n;
+      },
+      current_receiver: (): i64 => {
         log.debug('current_receiver');
         return this.context.receiver;
       },
+      set_action_return_value: (value: ptr, size: i32): void => {
+        // TODO
+      },
+
+      // TODO: chain APIs
+      // TODO: crypto APIs
 
       // db
-      db_store_i64: (scope, table, payer, id, data, len) => {
+      db_store_i64: (scope: i64, table: i64, payer: i64, id: i64, data: ptr, len: i32): i32 => {
         log.debug('db_store_i64');
         const tab = findOrCreateTable(this.context.receiver, scope, table, payer);
         assert(payer !== 0n, 'must specify a valid account to pay for new record');
@@ -95,7 +112,7 @@ export class EosVM extends Vert {
         this.kvCache.cacheTable(tab);
         return this.kvCache.add(kv);
       },
-      db_update_i64: (iterator, payer, data, len) => {
+      db_update_i64: (iterator: i32, payer: i64, data: ptr, len: i32): void => {
         log.debug('db_update_i64');
         const kvPrev = this.kvCache.get(iterator);
         const kv = kvPrev.clone();
@@ -107,7 +124,7 @@ export class EosVM extends Vert {
         kv.value = new Uint8Array(this.memory.buffer, data, len).slice();
         tab.set(kv.primaryKey, kv);
       },
-      db_remove_i64: (iterator) => {
+      db_remove_i64: (iterator: i32): void => {
         log.debug('db_remove_i64');
         const kv = this.kvCache.get(iterator);
         const tab = this.kvCache.getTable(kv.tableId);
@@ -115,7 +132,7 @@ export class EosVM extends Vert {
         tab.delete(kv.primaryKey);
         this.kvCache.remove(iterator);
       },
-      db_get_i64: (iterator, data, len) => {
+      db_get_i64: (iterator: i32, data: ptr, len: i32): i32 => {
         log.debug('db_get_i64');
         const kv = this.kvCache.get(iterator);
         if (!len) {
@@ -126,7 +143,7 @@ export class EosVM extends Vert {
         buffer.set(kv.value.subarray(0, size));
         return size;
       },
-      db_next_i64: (iterator, primary) => {
+      db_next_i64: (iterator: i32, primary: ptr): i32 => {
         log.debug('db_next_i64');
         if (iterator < -1) return -1;
         const kv = this.kvCache.get(iterator);
@@ -139,7 +156,11 @@ export class EosVM extends Vert {
         new Uint8Array(this.memory.buffer, primary, 8).set(buffer);
         return this.kvCache.add(kv);
       },
-      db_find_i64: (code, scope, table, id) => {
+      db_previous_i64: (iterator: i32, primary: ptr): i32 => {
+        // TODO
+        return 0;
+      },
+      db_find_i64: (code: i64, scope: i64, table: i64, id: i64): i32 => {
         log.debug('db_find_i64');
         const tab = findTable(code, scope, table);
         if (!tab) return -1;
@@ -148,76 +169,190 @@ export class EosVM extends Vert {
         if (!kv) return ei;
         return this.kvCache.add(kv);
       },
-      db_end_i64: (code, scope, table) => {
+      db_lowerbound_i64: (code: i64, scope: i64, table: i64, id: i64): i32 => {
+        // TODO
+        return 0;
+      },
+      db_upperbound_i64: (code: i64, scope: i64, table: i64, id: i64): i32 => {
+        // TODO
+        return 0;
+      },
+      db_end_i64: (code: i64, scope: i64, table: i64): i32 => {
         log.debug('db_end_i64');
         const tab = findTable(code, scope, table);
         if (!tab) return -1;
         return this.kvCache.cacheTable(tab);
       },
+      // TODO: DB secondary index APIs
+
+      // permission
+      check_transaction_authorization: (
+        txData: ptr, txSize: i32,
+        pubkeysData: ptr, pubkeysSize: i32,
+        permsData: ptr, permsSize: i32): i32 => {
+        // TODO
+        return 1;
+      },
+      check_permission_authorization: (
+        account: i64, permission: i64,
+        pubkeysData: ptr, pubkeysSize: i32,
+        permsData: ptr, permsSize: i32,
+        delayUs: i64): i32 => {
+        // TODO
+        return 1;
+      },
+      get_permission_last_used: (account: i64, permission: i64): i64 => {
+        // TODO
+        return 0n;
+      },
+      get_account_creation_time: (account: i64): i64 => {
+        // TODO
+        return 0n;
+      },
 
       // print
-      prints: (msg: i32) => {
+      prints: (msg: i32): void => {
         log.debug('prints');
-        console.info(this.memory.readString(msg));
+        console.log(this.memory.readString(msg));
       },
-      prints_l: (msg: i32, len: i32) => {
+      prints_l: (msg: i32, len: i32): void => {
         log.debug('prints_l');
-        console.info(this.memory.readString(msg, len));
+        console.log(this.memory.readString(msg, len));
       },
-      printi: (value: i64) => {
+      printi: (value: i64): void => {
       },
-      printui: (value: i64) => {
+      printui: (value: i64): void => {
       },
-      printi128: (value: i32) => {
+      printi128: (value: i32): void => {
       },
-      printui128: (value: i32) => {
+      printui128: (value: i32): void => {
       },
-      printsf: (value: f32) => {
+      printsf: (value: f32): void => {
       },
-      printdf: (value: f64) => {
+      printdf: (value: f64): void => {
       },
-      printqf: (value: i32) => {
+      printqf: (value: i32): void => {
       },
-      printn: (value: i64) => {
+      printn: (value: i64): void => {
       },
-      printhex: (data: i32, len: i32) => {
+      printhex: (data: i32, len: i32): void => {
       },
 
+      // TODO: privileged APIs
+      // TODO: security_group APIs
+
       // system
+      eosio_assert: (test: i32, msg: ptr): void => {
+        log.debug('eosio_assert');
+        assert(test, 'eosio_assert: ' + this.memory.readString(msg));
+      },
+      eosio_assert_message: (test: i32, msg: ptr, msg_len: i32): void => {
+        log.debug('eosio_assert_message');
+        assert(test, 'eosio_assert_message: ' + this.memory.readString(msg, msg_len));
+      },
+      eosio_assert_code: (test: i32, code: i64): void => {
+        log.debug('eosio_assert_code');
+        assert(test, `eosio_assert_code: ${code}`);
+      },
+      eosio_exit: (code: i32): void => {
+        log.debug('eosio_exit');
+        // TODO
+        throw new Error('not implemented');
+      },
+      current_time: (): i64 => {
+        log.debug('current_time');
+        return this.context.timestamp;
+      },
+      is_feature_activated: (digest: ptr): boolean => {
+        // TODO
+        return true;
+      },
+      get_sender: (): i64 => {
+        // TODO
+        return 0n;
+      },
+
+      // transaction
+      send_deferred: (sender: ptr, payer: i64, tx: ptr, size: i32, replace: i32) => {
+        // TODO
+      },
+      cancel_deferred: (sender: ptr): i32 => {
+        // TODO
+        return 0;
+      },
+      read_transaction: (buffer: ptr, size: i32): i32 => {
+        // TODO
+        return 0;
+      },
+      transaction_size: (): i32 => {
+        // TODO
+        return 0;
+      },
+      tapos_block_num: (): i32 => {
+        // TODO
+        return 0;
+      },
+      tapos_block_prefix: (): i32 => {
+        // TODO
+        return 0;
+      },
+      expiration: (): i32 => {
+        // TODO
+        return 0;
+      },
+      get_action: (type: i32, index: i32, buffer: ptr, size: i32): i32 => {
+        // TODO
+        return 0;
+      },
+      get_context_free_data: (index: i32, buffer: ptr, size: i32): i32 => {
+        // TODO
+        return 0;
+      },
+
+      // builtins
       abort: () => {
         log.debug('abort');
         // TODO
         throw new Error('not implemented');
       },
-      eosio_assert: (test, msg) => {
-        log.debug('eosio_assert');
-        assert(test, 'eosio_assert: ' + this.memory.readString(msg));
-      },
-      eosio_assert_message: (test, msg, msg_len) => {
-        log.debug('eosio_assert_message');
-        assert(test, 'eosio_assert_message: ' + this.memory.readString(msg, msg_len));
-      },
-      eosio_assert_code: (test, code) => {
-        log.debug('eosio_assert_code');
-        assert(test, `eosio_assert_code: ${code}`);
-      },
-      eosio_exit: (code) => {
-        log.debug('eosio_exit');
-        // TODO
-        throw new Error('not implemented');
-      },
-      current_time: () => {
-        log.debug('current_time');
-        return this.context.timestamp;
-      },
-
-      memcpy: (dest, src, count) => {
-        log.debug('memcpy');
+      memmove: (dest: ptr, src: ptr, count: i32): ptr => {
+        log.debug('memmove');
         const destination = new Uint8Array(this.memory.buffer, dest, count);
         const source = new Uint8Array(this.memory.buffer, src, count);
         destination.set(source);
         return dest;
       },
+      memset: (dest: ptr, ch: i32, count: i32): ptr => {
+        log.debug('memset');
+        const destination = new Uint8Array(this.memory.buffer, dest, count);
+        const source = Buffer.alloc(count, ch);
+        destination.set(source);
+        return dest;
+      },
+      memcpy: (dest: ptr, src: ptr, count: i32): ptr => {
+        log.debug('memcpy');
+        // HACK: imitate copying to overlapped destination
+        if ((dest - src) < count) {
+          const cpy = (d, s, c) => {
+            if (c <= 0) {
+              return;
+            }
+            const size = Math.min(d - s, c);
+            const destination = new Uint8Array(this.memory.buffer, d, size);
+            const source = new Uint8Array(this.memory.buffer, s, size);
+            destination.set(source);
+            cpy(d + size, s + size, c - size);
+          };
+          cpy(dest, src, count);
+        } else {
+          const destination = new Uint8Array(this.memory.buffer, dest, count);
+          const source = new Uint8Array(this.memory.buffer, src, count);
+          destination.set(source);
+        }
+        return dest;
+      },
+
+      // TODO: compiler-rt APIs
     },
   };
 

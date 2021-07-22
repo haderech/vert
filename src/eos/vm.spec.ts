@@ -8,7 +8,7 @@ let memory;
 let output;
 
 before(() => {
-  console.info = (msg) => {
+  console.log = (msg) => {
     output = msg;
   };
 });
@@ -109,6 +109,15 @@ describe('eos-vm', () => {
       buffer.set([161, 178, 195, 212, 0, 1, 255, 254]);
       vm.imports.env.printhex(0, 8);
       expect(output).to.equal('a1b2c3d40001fffe');
+    });
+  });
+
+  describe('builtins', () => {
+    it('memcpy', () => {
+      const buffer = Buffer.from(memory.buffer, 0, 6);
+      buffer.set([1, 2, 3, 4, 5, 6]);
+      vm.imports.env.memcpy(2, 0, 4);
+      expect(Buffer.compare(buffer, Buffer.from([1, 2, 1, 2, 1, 2]))).to.equal(0);
     });
   });
 });
