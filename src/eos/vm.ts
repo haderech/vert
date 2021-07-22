@@ -5,6 +5,11 @@ import { nameToBigInt64 } from "./utils";
 import { Table, KeyValueObject } from './table';
 import { IteratorCache } from "./iterator-cache";
 
+type i32 = number;
+type i64 = bigint;
+type f32 = number;
+type f64 = number;
+
 function findTable(code: bigint, scope: bigint, table: bigint): Table | undefined {
   return Table.find(code, scope, table);
 }
@@ -151,13 +156,31 @@ export class EosVM extends Vert {
       },
 
       // print
-      prints: (msg) => {
+      prints: (msg: i32) => {
         log.debug('prints');
         console.info(this.memory.readString(msg));
       },
-      prints_l: (msg, len) => {
+      prints_l: (msg: i32, len: i32) => {
         log.debug('prints_l');
         console.info(this.memory.readString(msg, len));
+      },
+      printi: (value: i64) => {
+      },
+      printui: (value: i64) => {
+      },
+      printi128: (value: i32) => {
+      },
+      printui128: (value: i32) => {
+      },
+      printsf: (value: f32) => {
+      },
+      printdf: (value: f64) => {
+      },
+      printqf: (value: i32) => {
+      },
+      printn: (value: i64) => {
+      },
+      printhex: (data: i32, len: i32) => {
       },
 
       // system

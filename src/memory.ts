@@ -1,4 +1,8 @@
 export class Memory {
+  static create(initial: number) {
+    return new Memory(new WebAssembly.Memory({ initial: initial }));
+  }
+
   constructor(private memory: WebAssembly.Memory) {}
 
   get buffer() {
@@ -10,7 +14,7 @@ export class Memory {
       const memoryView = new Uint8Array(this.memory.buffer, 0, this.memory.buffer.byteLength);
       for (let i = offset; i < memoryView.length; ++i) {
         if (!memoryView[i]) {
-          length = i - offset + 1;
+          length = i - offset;
           break;
         }
       }
