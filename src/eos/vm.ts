@@ -152,13 +152,27 @@ export class EosVM extends Vert {
           return this.kvCache.getEndIteratorByTableId(kv.tableId);
         }
         const buffer = Buffer.alloc(8);
-        buffer.writeBigInt64LE(value.primaryKey);
+        buffer.writeBigUInt64LE(value.primaryKey);
         new Uint8Array(this.memory.buffer, primary, 8).set(buffer);
         return this.kvCache.add(kv);
       },
       db_previous_i64: (iterator: i32, primary: ptr): i32 => {
-        // TODO
-        return 0;
+        if (iterator < -1) {
+          const tab = this.kvCache.findTableByEndIterator(iterator);
+          assert(tab, 'not a valid end iterator');
+          const kv = tab.penultimate();
+          if (!kv) return -1;
+          Buffer.from(this.memory.buffer, primary, 8).writeBigUInt64LE(kv.primaryKey);
+          return this.kvCache.add(kv);
+        }
+        let kv = this.kvCache.get(iterator);
+        const tab = Table.getById(kv.tableId);
+        kv = tab.prev(kv.primaryKey);
+        if (!kv) {
+          return -1;
+        }
+        Buffer.from(this.memory.buffer, primary, 8).writeBigUInt64LE(kv.primaryKey);
+        return this.kvCache.add(kv);
       },
       db_find_i64: (code: i64, scope: i64, table: i64, id: i64): i32 => {
         log.debug('db_find_i64');
@@ -170,12 +184,28 @@ export class EosVM extends Vert {
         return this.kvCache.add(kv);
       },
       db_lowerbound_i64: (code: i64, scope: i64, table: i64, id: i64): i32 => {
-        // TODO
-        return 0;
+        const tab = Table.find(code, scope, table);
+        if (!tab) {
+          return -1;
+        }
+        const ei = this.kvCache.cacheTable(tab);
+        const kv = tab.lowerbound(id);
+        if (!kv) {
+          return ei;
+        }
+        return this.kvCache.add(kv);
       },
       db_upperbound_i64: (code: i64, scope: i64, table: i64, id: i64): i32 => {
-        // TODO
-        return 0;
+        const tab = Table.find(code, scope, table);
+        if (!tab) {
+          return -1;
+        }
+        const ei = this.kvCache.cacheTable(tab);
+        const kv = tab.upperbound(id);
+        if (!kv) {
+          return ei;
+        }
+        return this.kvCache.add(kv);
       },
       db_end_i64: (code: i64, scope: i64, table: i64): i32 => {
         log.debug('db_end_i64');

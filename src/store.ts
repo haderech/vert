@@ -42,8 +42,36 @@ abstract class PrefixedStore<K,V> {
     }
     return;
   }
+  lowerbound(key: K): V | undefined {
+    if (this.store.has(this.key(key))) {
+      return this.store.get(this.key(key));
+    }
+    return this.next(key);
+  }
+  upperbound(key: K) {
+    return this.next(key);
+  }
+  begin(): V | undefined {
+    return this.lowerbound(this.lowestKey());
+  }
+  penultimate(): V | undefined {
+    const key = this.key(this.highestKey());
+    if (this.store.has(key)) {
+      return this.store.get(key);
+    }
+    const kv = this.store.prev(key);
+    if (kv) {
+      const [key, value] = kv;
+      if (!defaultComparator(this.prefix(), this.parsePrefix(key))) {
+        return value;
+      }
+    }
+    return;
+  }
   abstract prefix(): any;
   abstract key(key: K): any;
+  abstract lowestKey(): any;
+  abstract highestKey(): any;
   abstract parsePrefix(key: any): any;
 
   protected constructor(store: Store<any,V>) {
@@ -117,6 +145,10 @@ class Store<K,V> {
 
   get(key: K) {
     return this.store.get(key);
+  }
+
+  has(key: K) {
+    return this.store.has(key);
   }
 
   delete(key: K) {

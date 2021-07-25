@@ -48,15 +48,15 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
 
   static serializePrefix(code: bigint, scope: bigint, table: bigint): Buffer {
     let buf = Buffer.alloc(24);
-    buf.writeBigInt64BE(code);
-    buf.writeBigInt64BE(scope, 8);
-    buf.writeBigInt64BE(table, 16);
+    buf.writeBigUInt64BE(code);
+    buf.writeBigUInt64BE(scope, 8);
+    buf.writeBigUInt64BE(table, 16);
     return buf;
   }
 
   static bigintToBuffer(v: bigint): Buffer {
     const buffer = Buffer.alloc(8);
-    buffer.writeBigInt64BE(v);
+    buffer.writeBigUInt64BE(v);
     return buffer;
   }
 
@@ -85,6 +85,14 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
 
   key(key: bigint) {
     return Buffer.concat([this.prefix(), Table.bigintToBuffer(key)]);
+  }
+
+  lowestKey() {
+    return 0;
+  }
+
+  highestKey() {
+    return 18446744073709551615n;
   }
 
   parsePrefix(key: Buffer) {
