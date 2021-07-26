@@ -46,8 +46,7 @@ export class EosVM extends Vert {
           return this.context.data.length;
         }
         const size = Math.min(len, this.context.data.length);
-        const buffer = new Uint8Array(this.memory.buffer, msg, len);
-        buffer.set(this.context.data.subarray(0, size));
+        Buffer.from(this.memory.buffer, msg, len).set(this.context.data.subarray(0, size));
         return size;
       }
       ,
@@ -226,22 +225,19 @@ export class EosVM extends Vert {
           return kv.value.length;
         }
         const size = Math.min(len, kv.value.length);
-        const buffer = new Uint8Array(this.memory.buffer, data, len);
-        buffer.set(kv.value.subarray(0, size));
+        Buffer.from(this.memory.buffer, data, len).set(kv.value.subarray(0, size));
         return size;
       },
       db_next_i64: (iterator: i32, primary: ptr): i32 => {
         log.debug('db_next_i64');
         if (iterator < -1) return -1;
         const kv = this.kvCache.get(iterator);
-        const value = Table.getById(kv.tableId).next(kv.primaryKey);
-        if (!value) {
+        const kvNext = Table.getById(kv.tableId).next(kv.primaryKey);
+        if (!kvNext) {
           return this.kvCache.getEndIteratorByTableId(kv.tableId);
         }
-        const buffer = Buffer.alloc(8);
-        buffer.writeBigUInt64LE(value.primaryKey);
-        new Uint8Array(this.memory.buffer, primary, 8).set(buffer);
-        return this.kvCache.add(kv);
+        Buffer.from(this.memory.buffer, primary, 8).writeBigUInt64LE(kvNext.primaryKey);
+        return this.kvCache.add(kvNext);
       },
       db_previous_i64: (iterator: i32, primary: ptr): i32 => {
         log.debug('db_previous_i64');
@@ -253,14 +249,13 @@ export class EosVM extends Vert {
           Buffer.from(this.memory.buffer, primary, 8).writeBigUInt64LE(kv.primaryKey);
           return this.kvCache.add(kv);
         }
-        let kv = this.kvCache.get(iterator);
-        const tab = Table.getById(kv.tableId);
-        kv = tab.prev(kv.primaryKey);
-        if (!kv) {
+        const kv = this.kvCache.get(iterator);
+        const kvPrev = Table.getById(kv.tableId).prev(kv.primaryKey);
+        if (!kvPrev) {
           return -1;
         }
-        Buffer.from(this.memory.buffer, primary, 8).writeBigUInt64LE(kv.primaryKey);
-        return this.kvCache.add(kv);
+        Buffer.from(this.memory.buffer, primary, 8).writeBigUInt64LE(kvPrev.primaryKey);
+        return this.kvCache.add(kvPrev);
       },
       db_find_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
         log.debug('db_find_i64');
