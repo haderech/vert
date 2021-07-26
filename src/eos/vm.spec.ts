@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { EosVM } from './vm';
 import { Memory } from '../memory';
-import { nameToBigInt64 } from "./utils";
+import { NameToBigInt } from "./utils";
 
 let vm;
 let memory;
@@ -98,9 +98,9 @@ describe('eos-vm', () => {
     });
 
     it('printn', () => {
-      vm.imports.env.printn(nameToBigInt64('alice'));
+      vm.imports.env.printn(NameToBigInt('alice'));
       expect(output).to.equal('alice');
-      vm.imports.env.printn(nameToBigInt64('.foo..z.k'));
+      vm.imports.env.printn(NameToBigInt('.foo..z.k'));
       expect(output).to.equal('.foo..z.k');
     });
 

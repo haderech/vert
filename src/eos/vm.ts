@@ -1,7 +1,7 @@
 import assert from 'assert';
 import { ABI, Serializer } from '@greymass/eosio';
 import { log, Vert } from '../vert';
-import { nameToBigInt64 } from "./utils";
+import { NameToBigInt, BigIntToName } from "./utils";
 import { Table, KeyValueObject } from './table';
 import { IteratorCache } from "./iterator-cache";
 import crypto from 'crypto';
@@ -386,6 +386,7 @@ export class EosVM extends Vert {
       },
       printn: (value: i64): void => {
         log.debug('printn');
+        console.log(BigIntToName(value).toString());
       },
       printhex: (data: i32, len: i32): void => {
         log.debug('printhex');
@@ -583,12 +584,12 @@ export class EosVM extends Vert {
   }
 
   apply(receiver: string, first_receiver: string, action: string) {
-    this.context.receiver = nameToBigInt64(receiver);
-    this.context.first_receiver = nameToBigInt64(first_receiver);
+    this.context.receiver = NameToBigInt(receiver);
+    this.context.first_receiver = NameToBigInt(first_receiver);
     (this.instance.exports.apply as CallableFunction)(
       this.context.receiver,
       this.context.first_receiver,
-      nameToBigInt64(action));
+      NameToBigInt(action));
     this.finalize();
   }
 
@@ -597,7 +598,7 @@ export class EosVM extends Vert {
   }
 
   getTableRow(code: string, scope: bigint, table: string, primaryKey: bigint): any {
-    const tab = findTable(nameToBigInt64(code), scope, nameToBigInt64(table));
+    const tab = findTable(NameToBigInt(code), scope, NameToBigInt(table));
     const kv = tab?.get(primaryKey);
     if (!kv) {
       return;
