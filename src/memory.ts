@@ -23,7 +23,7 @@ export class Memory {
   }
 
   public readUint128(offset: number) {
-    const buffer = Buffer.from(new Uint8Array(this.memory.buffer, offset, 16));
+    const buffer = Buffer.from(this.memory.buffer, offset, 16);
     const low = buffer.readBigUInt64LE(0);
     const high = buffer.readBigUInt64LE(8);
     return (high << 64n) | low;
