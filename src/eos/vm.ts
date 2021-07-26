@@ -4,6 +4,7 @@ import { log, Vert } from '../vert';
 import { nameToBigInt64 } from "./utils";
 import { Table, KeyValueObject } from './table';
 import { IteratorCache } from "./iterator-cache";
+import crypto from 'crypto';
 
 type ptr = number;
 type i32 = number;
@@ -56,7 +57,6 @@ export class EosVM extends Vert {
       },
       require_recipient: (name: i64): void => {
         log.debug('require_recipient');
-        // TODO
       },
       require_auth: (name: i64): void => {
         log.debug('require_auth');
@@ -77,25 +77,105 @@ export class EosVM extends Vert {
         return true;
       },
       send_inline: (action: ptr, size: i32): void => {
+        log.debug('send_inline');
         // TODO
       },
       send_context_free_inline: (action: ptr, size: i32): void => {
+        log.debug('send_context_free_inline');
         // TODO
       },
       publication_time: (): i64 => {
+        log.debug('publication_time');
         // TODO
         return 0n;
       },
       current_receiver: (): i64 => {
         log.debug('current_receiver');
-        return this.context.receiver;
+        return BigInt.asIntN(64, this.context.receiver);
       },
       set_action_return_value: (value: ptr, size: i32): void => {
+        log.debug('set_action_return_value');
         // TODO
       },
 
-      // TODO: chain APIs
-      // TODO: crypto APIs
+      // chain
+      get_active_producers: (producers: ptr, len: i32): i32 => {
+        log.debug('get_active_producers');
+        return 0;
+      },
+
+      // crypto
+      assert_sha256: (data: ptr, len: i32, hash: ptr): void => {
+        log.debug('assert_sha256');
+        const result = crypto.createHash('sha256').update(Buffer.from(this.memory.buffer, data, len)).digest();
+        if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 32))) {
+          throw new Error('hash mismatch');
+        }
+      },
+      assert_sha1: (data: ptr, len: i32, hash: ptr): void => {
+        log.debug('assert_sha1');
+        const result = crypto.createHash('sha1').update(Buffer.from(this.memory.buffer, data, len)).digest();
+        if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 20))) {
+          throw new Error('hash mismatch');
+        }
+      },
+      assert_sha512: (data: ptr, len: i32, hash: ptr): void => {
+        log.debug('assert_sha512');
+        const result = crypto.createHash('sha512').update(Buffer.from(this.memory.buffer, data, len)).digest();
+        if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 64))) {
+          throw new Error('hash mismatch');
+        }
+      },
+      assert_ripemd160: (data: ptr, len: i32, hash: ptr): void => {
+        log.debug('assert_ripemd160');
+        const result = crypto.createHash('ripemd160').update(Buffer.from(this.memory.buffer, data, len)).digest();
+        if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 20))) {
+          throw new Error('hash mismatch');
+        }
+      },
+      sha256: (data: ptr, len: i32, hash: ptr): void => {
+        log.debug('sha256');
+        Buffer.from(this.memory.buffer, hash, 32).set(
+          crypto
+            .createHash('sha256')
+            .update(Buffer.from(this.memory.buffer, data, len))
+            .digest()
+        );
+      },
+      sha1: (data: ptr, len: i32, hash: ptr): void => {
+        log.debug('sha1');
+        Buffer.from(this.memory.buffer, hash, 20).set(
+          crypto
+            .createHash('sha1')
+            .update(Buffer.from(this.memory.buffer, data, len))
+            .digest()
+        );
+      },
+      sha512: (data: ptr, len: i32, hash: ptr): void => {
+        log.debug('sha512');
+        Buffer.from(this.memory.buffer, hash, 64).set(
+          crypto
+            .createHash('sha512')
+            .update(Buffer.from(this.memory.buffer, data, len))
+            .digest()
+        );
+      },
+      ripemd160: (data: ptr, len: i32, hash: ptr): void => {
+        log.debug('ripemd160');
+        Buffer.from(this.memory.buffer, hash, 20).set(
+          crypto
+            .createHash('ripemd160')
+            .update(Buffer.from(this.memory.buffer, data, len))
+            .digest()
+        );
+      },
+      recover_key: (digest: ptr, sig: ptr, siglen: i32, pub: ptr, publen: i32): i32 => {
+        log.debug('recover_key');
+        return 0;
+      },
+      assert_recover_key: (digest: ptr, sig: ptr, siglen: i32, pub: ptr, publen: i32): void => {
+        log.debug('assert_recover_key');
+      },
 
       // db
       db_store_i64: (_scope: i64, _table: i64, _payer: i64, _id: i64, data: ptr, len: i32): i32 => {
@@ -164,6 +244,7 @@ export class EosVM extends Vert {
         return this.kvCache.add(kv);
       },
       db_previous_i64: (iterator: i32, primary: ptr): i32 => {
+        log.debug('db_previous_i64');
         if (iterator < -1) {
           const tab = this.kvCache.findTableByEndIterator(iterator);
           assert(tab, 'not a valid end iterator');
@@ -248,6 +329,7 @@ export class EosVM extends Vert {
         txData: ptr, txSize: i32,
         pubkeysData: ptr, pubkeysSize: i32,
         permsData: ptr, permsSize: i32): i32 => {
+        log.debug('check_transaction_authorization');
         // TODO
         return 1;
       },
@@ -256,14 +338,17 @@ export class EosVM extends Vert {
         pubkeysData: ptr, pubkeysSize: i32,
         permsData: ptr, permsSize: i32,
         delayUs: i64): i32 => {
+        log.debug('check_permission_authorization');
         // TODO
         return 1;
       },
       get_permission_last_used: (account: i64, permission: i64): i64 => {
+        log.debug('get_permission_last_used');
         // TODO
         return 0n;
       },
       get_account_creation_time: (account: i64): i64 => {
+        log.debug('get_account_creation_time');
         // TODO
         return 0n;
       },
@@ -322,47 +407,58 @@ export class EosVM extends Vert {
         return BigInt.asIntN(64, this.context.timestamp);
       },
       is_feature_activated: (digest: ptr): boolean => {
+        log.debug('is_feature_activated');
         // TODO
         return true;
       },
       get_sender: (): i64 => {
+        log.debug('get_sender');
         // TODO
         return 0n;
       },
 
       // transaction
       send_deferred: (sender: ptr, payer: i64, tx: ptr, size: i32, replace: i32) => {
+        log.debug('send_deferred');
         // TODO
       },
       cancel_deferred: (sender: ptr): i32 => {
+        log.debug('cancel_deferred');
         // TODO
         return 0;
       },
       read_transaction: (buffer: ptr, size: i32): i32 => {
+        log.debug('read_transaction');
         // TODO
         return 0;
       },
       transaction_size: (): i32 => {
+        log.debug('transaction_size');
         // TODO
         return 0;
       },
       tapos_block_num: (): i32 => {
+        log.debug('tapos_block_num');
         // TODO
         return 0;
       },
       tapos_block_prefix: (): i32 => {
+        log.debug('tapos_block_prefix');
         // TODO
         return 0;
       },
       expiration: (): i32 => {
+        log.debug('expiration');
         // TODO
         return 0;
       },
       get_action: (type: i32, index: i32, buffer: ptr, size: i32): i32 => {
+        log.debug('get_action');
         // TODO
         return 0;
       },
       get_context_free_data: (index: i32, buffer: ptr, size: i32): i32 => {
+        log.debug('get_context_free_data');
         // TODO
         return 0;
       },
@@ -411,6 +507,49 @@ export class EosVM extends Vert {
       },
 
       // TODO: compiler-rt APIs
+      __ashlti3: () => {},
+      __ashrti3: () => {},
+      __lshlti3: () => {},
+      __lshrti3: () => {},
+      __divti3: () => {},
+      __udivti3: () => {},
+      __multi3: () => {},
+      __modti3: () => {},
+      __umodti3: () => {},
+      __addtf3: () => {}, //
+      __subtf3: () => {}, //
+      __multf3: () => {}, //
+      __divtf3: () => {}, //
+      __negtf2: () => {},
+      __extendsftf2: () => {}, //
+      __extenddftf2: () => {}, //
+      __trunctfdf2: () => {}, //
+      __trunctfsf2: () => {}, //
+      __fixtfsi: () => {},
+      __fixtfdi: () => {},
+      __fixtfti: () => {},
+      __fixunstfsi: () => {},
+      __fixunstfdi: () => {},
+      __fixunstfti: () => {},
+      __fixsfti: () => {},
+      __fixdfti: () => {},
+      __fixunssfti: () => {},
+      __fixunsdfti: () => {},
+      __floatsidf: () => {},
+      __floatsitf: () => {}, //
+      __floatditf: () => {},
+      __floatunsitf: () => {}, //
+      __floatunditf: () => {},
+      __floattidf: () => {},
+      __floatuntidf: () => {},
+      __cmptf2: () => {},
+      __eqtf2: () => {}, //
+      __netf2: () => {}, //
+      __getf2: () => {}, //
+      __gttf2: () => {},
+      __letf2: () => {}, //
+      __lttf2: () => {},
+      __unordtf2: () => {},
     },
   };
 
