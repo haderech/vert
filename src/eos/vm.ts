@@ -98,8 +98,13 @@ export class EosVM extends Vert {
       // TODO: crypto APIs
 
       // db
-      db_store_i64: (scope: i64, table: i64, payer: i64, id: i64, data: ptr, len: i32): i32 => {
+      db_store_i64: (_scope: i64, _table: i64, _payer: i64, _id: i64, data: ptr, len: i32): i32 => {
         log.debug('db_store_i64');
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+        const payer = BigInt.asUintN(64, _payer);
+        const id = BigInt.asUintN(64, _id);
+
         const tab = findOrCreateTable(this.context.receiver, scope, table, payer);
         assert(payer !== 0n, 'must specify a valid account to pay for new record');
         assert(!tab.has(id), 'key uniqueness violation');
@@ -112,8 +117,10 @@ export class EosVM extends Vert {
         this.kvCache.cacheTable(tab);
         return this.kvCache.add(kv);
       },
-      db_update_i64: (iterator: i32, payer: i64, data: ptr, len: i32): void => {
+      db_update_i64: (iterator: i32, _payer: i64, data: ptr, len: i32): void => {
         log.debug('db_update_i64');
+        const payer = BigInt.asUintN(64, _payer);
+
         const kvPrev = this.kvCache.get(iterator);
         const kv = kvPrev.clone();
         const tab = this.kvCache.getTable(kv.tableId);
@@ -174,8 +181,13 @@ export class EosVM extends Vert {
         Buffer.from(this.memory.buffer, primary, 8).writeBigUInt64LE(kv.primaryKey);
         return this.kvCache.add(kv);
       },
-      db_find_i64: (code: i64, scope: i64, table: i64, id: i64): i32 => {
+      db_find_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
         log.debug('db_find_i64');
+        const code = BigInt.asUintN(64, _code);
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+        const id = BigInt.asUintN(64, _id);
+
         const tab = findTable(code, scope, table);
         if (!tab) return -1;
         const ei = this.kvCache.cacheTable(tab);
@@ -183,7 +195,13 @@ export class EosVM extends Vert {
         if (!kv) return ei;
         return this.kvCache.add(kv);
       },
-      db_lowerbound_i64: (code: i64, scope: i64, table: i64, id: i64): i32 => {
+      db_lowerbound_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
+        log.debug('db_lowerbound_i64');
+        const code = BigInt.asUintN(64, _code);
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+        const id = BigInt.asUintN(64, _id);
+
         const tab = Table.find(code, scope, table);
         if (!tab) {
           return -1;
@@ -195,7 +213,13 @@ export class EosVM extends Vert {
         }
         return this.kvCache.add(kv);
       },
-      db_upperbound_i64: (code: i64, scope: i64, table: i64, id: i64): i32 => {
+      db_upperbound_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
+        log.debug('db_upperbound_i64');
+        const code = BigInt.asUintN(64, _code);
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+        const id = BigInt.asUintN(64, _id);
+
         const tab = Table.find(code, scope, table);
         if (!tab) {
           return -1;
@@ -207,8 +231,12 @@ export class EosVM extends Vert {
         }
         return this.kvCache.add(kv);
       },
-      db_end_i64: (code: i64, scope: i64, table: i64): i32 => {
+      db_end_i64: (_code: i64, _scope: i64, _table: i64): i32 => {
         log.debug('db_end_i64');
+        const code = BigInt.asUintN(64, _code);
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+
         const tab = findTable(code, scope, table);
         if (!tab) return -1;
         return this.kvCache.cacheTable(tab);
@@ -282,7 +310,7 @@ export class EosVM extends Vert {
       },
       eosio_assert_code: (test: i32, code: i64): void => {
         log.debug('eosio_assert_code');
-        assert(test, `eosio_assert_code: ${code}`);
+        assert(test, `eosio_assert_code: ${BigInt.asUintN(64, code)}`);
       },
       eosio_exit: (code: i32): void => {
         log.debug('eosio_exit');
@@ -291,7 +319,7 @@ export class EosVM extends Vert {
       },
       current_time: (): i64 => {
         log.debug('current_time');
-        return this.context.timestamp;
+        return BigInt.asIntN(64, this.context.timestamp);
       },
       is_feature_activated: (digest: ptr): boolean => {
         // TODO
@@ -362,7 +390,7 @@ export class EosVM extends Vert {
       memcpy: (dest: ptr, src: ptr, count: i32): ptr => {
         log.debug('memcpy');
         // HACK: imitate copying to overlapped destination
-        if ((dest - src) < count) {
+        if ((dest - src) < count && (dest - src) >= 0) {
           const cpy = (d, s, c) => {
             if (c <= 0) {
               return;
