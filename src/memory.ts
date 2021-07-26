@@ -21,4 +21,19 @@ export class Memory {
     }
     return Buffer.from(new Uint8Array(this.memory.buffer, offset, length)).toString();
   }
+
+  public readUint128(offset: number) {
+    const buffer = Buffer.from(new Uint8Array(this.memory.buffer, offset, 16));
+    const low = buffer.readBigUInt64LE(0);
+    const high = buffer.readBigUInt64LE(8);
+    return (high << 64n) | low;
+  }
+
+  public readInt128(offset: number) {
+    return BigInt.asIntN(128, this.readUint128(offset));
+  }
+
+  public readHex(offset: number, length: number) {
+    return Buffer.from(new Uint8Array(this.memory.buffer, offset, length)).toString('hex');
+  }
 }

@@ -220,22 +220,38 @@ export class EosVM extends Vert {
         console.log(this.memory.readString(msg, len));
       },
       printi: (value: i64): void => {
+        log.debug('printi');
+        console.log(value.toString());
       },
       printui: (value: i64): void => {
+        log.debug('printui');
+        console.log(BigInt.asUintN(64, value).toString());
       },
       printi128: (value: i32): void => {
+        log.debug('printi128');
+        console.log(this.memory.readInt128(value).toString());
       },
       printui128: (value: i32): void => {
+        log.debug('printui128');
+        console.log(this.memory.readUint128(value).toString());
       },
       printsf: (value: f32): void => {
+        log.debug('printsf');
+        console.log(value);
       },
       printdf: (value: f64): void => {
+        log.debug('printdf');
+        console.log(value);
       },
       printqf: (value: i32): void => {
+        log.debug('printdf');
       },
       printn: (value: i64): void => {
+        log.debug('printn');
       },
       printhex: (data: i32, len: i32): void => {
+        log.debug('printhex');
+        console.log(this.memory.readHex(data, len));
       },
 
       // TODO: privileged APIs

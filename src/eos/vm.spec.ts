@@ -62,8 +62,8 @@ describe('eos-vm', () => {
       vm.imports.env.printi128(0);
       expect(output).to.equal('-1');
 
-      buffer.writeBigInt64LE(0n);
-      buffer.writeBigInt64LE(1n << 63n, 8);
+      buffer.writeBigUInt64LE(0n);
+      buffer.writeBigUInt64LE(1n << 63n, 8);
       vm.imports.env.printi128(0);
       expect(output).to.equal('-170141183460469231731687303715884105728');
     });
@@ -76,8 +76,8 @@ describe('eos-vm', () => {
       vm.imports.env.printui128(0);
       expect(output).to.equal('340282366920938463463374607431768211455');
 
-      buffer.writeBigInt64LE(0n);
-      buffer.writeBigInt64LE(1n << 63n, 8);
+      buffer.writeBigUInt64LE(0n);
+      buffer.writeBigUInt64LE(1n << 63n, 8);
       vm.imports.env.printui128(0);
       expect(output).to.equal('170141183460469231731687303715884105728');
     });
