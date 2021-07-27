@@ -24,6 +24,10 @@ function findOrCreateTable(code: bigint, scope: bigint, table: bigint, payer: bi
   return tab;
 }
 
+function convertToUnsigned(...values: bigint[]) {
+  return values.map(v => BigInt.asUintN(64, v));
+}
+
 const SecondaryKeyConverter = {
   uint64: {
     from: (buffer: Buffer) => buffer.readBigUInt64LE(),
@@ -393,10 +397,7 @@ export class EosVM extends Vert {
       // db
       db_store_i64: (_scope: i64, _table: i64, _payer: i64, _id: i64, data: ptr, len: i32): i32 => {
         log.debug('db_store_i64');
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
-        const payer = BigInt.asUintN(64, _payer);
-        const id = BigInt.asUintN(64, _id);
+        const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
 
         const tab = findOrCreateTable(this.context.receiver, scope, table, payer);
         assert(payer !== 0n, 'must specify a valid account to pay for new record');
@@ -474,10 +475,7 @@ export class EosVM extends Vert {
       },
       db_find_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
         log.debug('db_find_i64');
-        const code = BigInt.asUintN(64, _code);
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
-        const id = BigInt.asUintN(64, _id);
+        const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
 
         const tab = findTable(code, scope, table);
         if (!tab) return -1;
@@ -488,10 +486,7 @@ export class EosVM extends Vert {
       },
       db_lowerbound_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
         log.debug('db_lowerbound_i64');
-        const code = BigInt.asUintN(64, _code);
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
-        const id = BigInt.asUintN(64, _id);
+        const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
 
         const tab = Table.find(code, scope, table);
         if (!tab) {
@@ -506,10 +501,7 @@ export class EosVM extends Vert {
       },
       db_upperbound_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
         log.debug('db_upperbound_i64');
-        const code = BigInt.asUintN(64, _code);
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
-        const id = BigInt.asUintN(64, _id);
+        const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
 
         const tab = Table.find(code, scope, table);
         if (!tab) {
@@ -524,9 +516,7 @@ export class EosVM extends Vert {
       },
       db_end_i64: (_code: i64, _scope: i64, _table: i64): i32 => {
         log.debug('db_end_i64');
-        const code = BigInt.asUintN(64, _code);
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         const tab = findTable(code, scope, table);
         if (!tab) return -1;
@@ -535,10 +525,8 @@ export class EosVM extends Vert {
       // uint64_t secondary index api
       db_idx64_store: (_scope: bigint, _table: bigint, _payer: bigint, _id: bigint, secondary: ptr): i32 => {
         log.debug('db_idx64_store');
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
-        const payer = BigInt.asUintN(64, _payer);
-        const id = BigInt.asUintN(64, _id);
+        const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
+
         const itr = this.genericIndex.store(
           Table.idx64(), this.idx64,
           scope, table, payer, id, Buffer.from(this.memory.buffer, secondary, 8), SecondaryKeyConverter.uint64);
@@ -556,42 +544,36 @@ export class EosVM extends Vert {
       },
       db_idx64_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx64_find_secondary');
-        const code = BigInt.asUintN(64, _code);
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
         return this.genericIndex.find_secondary(Table.idx64(), this.idx64,
           code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
       },
       db_idx64_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
         log.debug('db_idx64_find_primary');
-        const code = BigInt.asUintN(64, _code);
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
-        const primaryKey = BigInt.asUintN(64, _primary);
+        const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
+
         return this.genericIndex.find_primary(Table.idx64(), this.idx64,
           code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primaryKey, SecondaryKeyConverter.uint64);
       },
       db_idx64_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx64_lowerbound');
-        const code = BigInt.asUintN(64, _code);
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
         return this.genericIndex.lowerbound_secondary(Table.idx64(), this.idx64,
           code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
       },
       db_idx64_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx64_upperbound');
-        const code = BigInt.asUintN(64, _code);
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
         return this.genericIndex.upperbound_secondary(Table.idx64(), this.idx64,
           code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
       },
       db_idx64_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
         log.debug('db_idx64_end');
-        const code = BigInt.asUintN(64, _code);
-        const scope = BigInt.asUintN(64, _scope);
-        const table = BigInt.asUintN(64, _table);
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
         return this.genericIndex.end_secondary(Table.idx64(), this.idx64, code, scope, table);
       },
       db_idx64_next: (iterator: number, primary: ptr): i32 => {
