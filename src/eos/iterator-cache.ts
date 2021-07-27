@@ -53,6 +53,10 @@ export class IteratorCache<T> {
     return this.iteratorToObject[iterator];
   }
 
+  set(iterator: number, value: T) {
+    this.iteratorToObject[iterator] = value;
+  }
+
   remove(iterator: number) {
     assert(iterator != -1, 'invalid iterator');
     assert(iterator >= 0, 'cannot call remove on end iterators');

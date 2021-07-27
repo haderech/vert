@@ -51,9 +51,6 @@ abstract class PrefixedStore<K,V> {
   upperbound(key: K) {
     return this.next(key);
   }
-  begin(): V | undefined {
-    return this.lowerbound(this.lowestKey());
-  }
   penultimate(): V | undefined {
     const key = this.key(this.highestKey());
     if (this.store.has(key)) {

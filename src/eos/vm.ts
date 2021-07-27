@@ -2,7 +2,7 @@ import assert from 'assert';
 import { ABI, Serializer } from '@greymass/eosio';
 import { log, Vert } from '../vert';
 import { NameToBigInt, BigIntToName } from "./utils";
-import { Table, KeyValueObject } from './table';
+import { Table, KeyValueObject, IndexObject, SecondaryKeyStore } from './table';
 import { IteratorCache } from "./iterator-cache";
 import crypto from 'crypto';
 
@@ -24,6 +24,36 @@ function findOrCreateTable(code: bigint, scope: bigint, table: bigint, payer: bi
   return tab;
 }
 
+const SecondaryKeyConverter = {
+  uint64: {
+    from: (buffer: Buffer) => buffer.readBigUInt64LE(),
+    to: (buffer: Buffer, value: bigint) => buffer.writeBigUInt64LE(value),
+  },
+  uint128: {
+    from: (buffer: Buffer) => {
+      const low = buffer.readBigUInt64LE(0);
+      const high = buffer.readBigUInt64LE(8);
+      return (high << 64n) | low;
+    },
+    to: (buffer: Buffer, value: bigint) => {
+      buffer.writeBigUInt64LE(value & BigInt.asUintN(64, -1n), 0);
+      buffer.writeBigUInt64LE(value >> 64n, 8);
+    },
+  },
+  checksum256: {
+    from: (buffer: Buffer) => buffer,
+    to: (buffer: Buffer, value: Buffer) => buffer.set(value),
+  },
+  double: {
+    from: (buffer: Buffer): number => buffer.readDoubleLE(),
+    to: (buffer: Buffer, value: number) => buffer.writeDoubleLE(value),
+  },
+  /*
+  LongDouble: {
+  },
+  */
+};
+
 class EosVMContext {
   receiver: bigint;
   first_receiver?: bigint;
@@ -36,6 +66,190 @@ export class EosVM extends Vert {
   private context: EosVMContext = new EosVMContext();
   private kvCache = new IteratorCache<KeyValueObject>();
   private abi: any;
+  private idx64 = new IteratorCache<IndexObject<bigint>>();
+  private idx128 = new IteratorCache<IndexObject<bigint>>();
+  private idx256 = new IteratorCache<IndexObject<Buffer>>();
+  private idxDouble = new IteratorCache<IndexObject<number>>();
+  // private idxLongDouble;
+
+  private genericIndex = {
+    store: <K,>(
+      index: SecondaryKeyStore<K>,
+      cache: IteratorCache<IndexObject<K>>,
+      scope: bigint, table: bigint, payer: bigint, id: bigint, secondary: Buffer, conv
+    ) => {
+      assert(payer !== 0n, 'must specify a valid account to pay for new record');
+      const tab = findOrCreateTable(this.context.receiver, scope, table, payer);
+      const obj = {
+        tableId: tab.id,
+        primaryKey: id,
+        secondaryKey: conv.from(secondary),
+        payer,
+      } as IndexObject<K>;
+      index.set(undefined, obj);
+      cache.cacheTable(tab);
+      return cache.add(obj);
+    },
+    update: <K,>(
+      index: SecondaryKeyStore<K>,
+      cache: IteratorCache<IndexObject<K>>,
+      iterator: number, payer: bigint, secondary: Buffer, conv
+    ) => {
+      const obj = cache.get(iterator);
+      const tab = cache.getTable(obj.tableId);
+      assert(tab.code === this.context.receiver, 'db access violation');
+      if (payer === 0n) {
+        payer = obj.payer;
+      }
+      const newObj = obj.clone();
+      newObj.secondaryKey = conv.from(secondary);
+      newObj.payer = payer;
+      index.set(obj, newObj);
+      cache.set(iterator, newObj);
+    },
+    remove: <K,>(
+      index: SecondaryKeyStore<K>,
+      cache: IteratorCache<IndexObject<K>>,
+      iterator: number
+    ) => {
+      const obj = cache.get(iterator);
+      const tab = cache.getTable(obj.tableId);
+      assert(tab.code === this.context.receiver, 'db access violation');
+      index.delete(obj);
+      cache.remove(iterator);
+    },
+    find_secondary: <K,>(
+      index: SecondaryKeyStore<K>,
+      cache: IteratorCache<IndexObject<K>>,
+      code: bigint, scope: bigint, table: bigint, secondary: Buffer, primary: ptr, conv
+    ) => {
+      const tab = findTable(code, scope, table);
+      if (!tab) {
+        return -1;
+      }
+      const ei = cache.cacheTable(tab);
+      const obj = index.secondary.get({
+        tableId: tab.id,
+        primaryKey: 0n,
+        secondaryKey: conv.from(secondary),
+      });
+      if (!obj) {
+        return ei;
+      }
+      this.memory.writeUint64(primary, obj.primaryKey);
+      return cache.add(obj);
+    },
+    lowerbound_secondary: <K,>(
+      index: SecondaryKeyStore<K>,
+      cache: IteratorCache<IndexObject<K>>,
+      code: bigint, scope: bigint, table: bigint, secondary: Buffer, primary: ptr, conv
+    ) => {
+      const tab = findTable(code, scope, table);
+      if (!tab) {
+        return -1;
+      }
+      const ei = cache.cacheTable(tab);
+      const obj = index.secondary.lowerbound({
+        tableId: tab.id,
+        primaryKey: 0n,
+        secondaryKey: conv.from(secondary)
+      });
+      if (!obj) return ei;
+      this.memory.writeUint64(primary, obj.primaryKey);
+      conv.to(secondary, obj.secondaryKey);
+      return cache.add(obj);
+    },
+    upperbound_secondary: <K,>(
+      index: SecondaryKeyStore<K>,
+      cache: IteratorCache<IndexObject<K>>,
+      code: bigint, scope: bigint, table: bigint, secondary: Buffer, primary: ptr, conv
+    ) => {
+      const tab = findTable(code, scope, table);
+      if (!tab) {
+        return -1;
+      }
+      const ei = cache.cacheTable(tab);
+      const obj = index.secondary.upperbound({
+        tableId: tab.id,
+        primaryKey: 0n,
+        secondaryKey: conv.from(secondary)
+      });
+      if (!obj) return ei;
+      this.memory.writeUint64(primary, obj.primaryKey);
+      conv.to(secondary, obj.secondaryKey);
+      return cache.add(obj);
+    },
+    end_secondary: <K,>(
+      index: SecondaryKeyStore<K>,
+      cache: IteratorCache<IndexObject<K>>,
+      code: bigint, scope: bigint, table: bigint
+    ) => {
+      const tab = findTable(code, scope, table);
+      if (!tab) {
+        return -1;
+      }
+      return cache.cacheTable(tab);
+    },
+    next_secondary: <K,>(
+      index: SecondaryKeyStore<K>,
+      cache: IteratorCache<IndexObject<K>>,
+      iterator: number, primary: ptr
+    ) => {
+      if (iterator < -1) {
+        return -1;
+      }
+      const obj = cache.get(iterator);
+      const objNext = index.secondary.next(obj);
+      if (!objNext) {
+        return cache.getEndIteratorByTableId(obj.tableId);
+      }
+      this.memory.writeUint64(primary, obj.primaryKey);
+      return cache.add(objNext);
+    },
+    previous_secondary: <K,>(
+      index: SecondaryKeyStore<K>,
+      cache: IteratorCache<IndexObject<K>>,
+      iterator: number, primary: ptr
+    ) => {
+      if (iterator < -1) {
+        const tab = cache.findTableByEndIterator(iterator);
+        assert(tab, 'not a valid end iterator');
+        const obj = index.secondary.penultimate(tab.id);
+        if (!obj) {
+          return -1;
+        }
+        this.memory.writeUint64(primary, obj.primaryKey);
+        return cache.add(obj);
+      }
+      const obj = cache.get(iterator);
+      const objPrev = index.secondary.prev(obj);
+      if (!objPrev) {
+        return -1;
+      }
+      this.memory.writeUint64(primary, obj.primaryKey);
+      return cache.add(obj);
+    },
+    find_primary: <K,>(
+      index: SecondaryKeyStore<K>,
+      cache: IteratorCache<IndexObject<K>>,
+      code: bigint, scope: bigint, table: bigint, secondary: Buffer, primary: bigint, conv
+    ) => {
+      const tab = findTable(code, scope, table);
+      if (!tab) {
+        return -1;
+      }
+      const ei = cache.cacheTable(tab);
+      const obj = index.get({
+        tableId: tab.id,
+        primaryKey: primary
+      });
+      if (!obj) {
+        return ei;
+      }
+      conv.to(secondary, obj.secondaryKey);
+      return cache.add(obj);
+    },
+  };
 
   protected imports = {
     env: {
@@ -209,6 +423,7 @@ export class EosVM extends Vert {
         }
         kv.value = new Uint8Array(this.memory.buffer, data, len).slice();
         tab.set(kv.primaryKey, kv);
+        this.kvCache.set(iterator, kv);
       },
       db_remove_i64: (iterator: i32): void => {
         log.debug('db_remove_i64');
@@ -317,7 +532,124 @@ export class EosVM extends Vert {
         if (!tab) return -1;
         return this.kvCache.cacheTable(tab);
       },
-      // TODO: DB secondary index APIs
+      // uint64_t secondary index api
+      db_idx64_store: (_scope: bigint, _table: bigint, _payer: bigint, _id: bigint, secondary: ptr): i32 => {
+        log.debug('db_idx64_store');
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+        const payer = BigInt.asUintN(64, _payer);
+        const id = BigInt.asUintN(64, _id);
+        const itr = this.genericIndex.store(
+          Table.idx64(), this.idx64,
+          scope, table, payer, id, Buffer.from(this.memory.buffer, secondary, 8), SecondaryKeyConverter.uint64);
+        return itr;
+      },
+      db_idx64_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
+        log.debug('db_idx64_update');
+        const payer = BigInt.asUintN(64, _payer);
+        this.genericIndex.update(Table.idx64(), this.idx64, iterator, payer,
+          Buffer.from(this.memory.buffer, secondary, 8), SecondaryKeyConverter.uint64);
+      },
+      db_idx64_remove: (iterator: number): void => {
+        log.debug('db_idx64_remove');
+        this.genericIndex.remove(Table.idx64(), this.idx64, iterator);
+      },
+      db_idx64_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx64_find_secondary');
+        const code = BigInt.asUintN(64, _code);
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+        return this.genericIndex.find_secondary(Table.idx64(), this.idx64,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
+      },
+      db_idx64_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
+        log.debug('db_idx64_find_primary');
+        const code = BigInt.asUintN(64, _code);
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+        const primaryKey = BigInt.asUintN(64, _primary);
+        return this.genericIndex.find_primary(Table.idx64(), this.idx64,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primaryKey, SecondaryKeyConverter.uint64);
+      },
+      db_idx64_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx64_lowerbound');
+        const code = BigInt.asUintN(64, _code);
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+        return this.genericIndex.lowerbound_secondary(Table.idx64(), this.idx64,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
+      },
+      db_idx64_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx64_upperbound');
+        const code = BigInt.asUintN(64, _code);
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+        return this.genericIndex.upperbound_secondary(Table.idx64(), this.idx64,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
+      },
+      db_idx64_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
+        log.debug('db_idx64_end');
+        const code = BigInt.asUintN(64, _code);
+        const scope = BigInt.asUintN(64, _scope);
+        const table = BigInt.asUintN(64, _table);
+        return this.genericIndex.end_secondary(Table.idx64(), this.idx64, code, scope, table);
+      },
+      db_idx64_next: (iterator: number, primary: ptr): i32 => {
+        log.debug('db_idx64_next');
+        return this.genericIndex.next_secondary(Table.idx64(), this.idx64, iterator, primary);
+      },
+      db_idx64_previous: (iterator: number, primary: ptr): i32 => {
+        log.debug('db_idx64_previous');
+        return this.genericIndex.previous_secondary(Table.idx64(), this.idx64, iterator, primary);
+      },
+
+      // uint128_t secondary index api
+      db_idx128_store: () => {},
+      db_idx128_update: () => {},
+      db_idx128_remove: () => {},
+      db_idx128_find_secondary: () => {},
+      db_idx128_find_primary: () => {},
+      db_idx128_lowerbound: () => {},
+      db_idx128_upperbound: () => {},
+      db_idx128_end: () => {},
+      db_idx128_next: () => {},
+      db_idx128_previous: () => {},
+
+      // 256-bit secondary index api
+      db_idx256_store: () => {},
+      db_idx256_update: () => {},
+      db_idx256_remove: () => {},
+      db_idx256_find_secondary: () => {},
+      db_idx256_find_primary: () => {},
+      db_idx256_lowerbound: () => {},
+      db_idx256_upperbound: () => {},
+      db_idx256_end: () => {},
+      db_idx256_next: () => {},
+      db_idx256_previous: () => {},
+
+      // double secondary index api
+      db_idx_double_store: () => {},
+      db_idx_double_update: () => {},
+      db_idx_double_remove: () => {},
+      db_idx_double_find_secondary: () => {},
+      db_idx_double_find_primary: () => {},
+      db_idx_double_lowerbound: () => {},
+      db_idx_double_upperbound: () => {},
+      db_idx_double_end: () => {},
+      db_idx_double_next: () => {},
+      db_idx_double_previous: () => {},
+
+      // long double secondary index api
+      db_idx_long_double_store: () => {},
+      db_idx_long_double_update: () => {},
+      db_idx_long_double_remove: () => {},
+      db_idx_long_double_find_secondary: () => {},
+      db_idx_long_double_find_primary: () => {},
+      db_idx_long_double_lowerbound: () => {},
+      db_idx_long_double_upperbound: () => {},
+      db_idx_long_double_end: () => {},
+      db_idx_long_double_next: () => {},
+      db_idx_long_double_previous: () => {},
 
       // permission
       check_transaction_authorization: (
