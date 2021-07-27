@@ -203,7 +203,7 @@ export class EosVM extends Vert {
       if (!objNext) {
         return cache.getEndIteratorByTableId(obj.tableId);
       }
-      this.memory.writeUint64(primary, obj.primaryKey);
+      this.memory.writeUint64(primary, objNext.primaryKey);
       return cache.add(objNext);
     },
     previous_secondary: <K,>(
@@ -226,8 +226,8 @@ export class EosVM extends Vert {
       if (!objPrev) {
         return -1;
       }
-      this.memory.writeUint64(primary, obj.primaryKey);
-      return cache.add(obj);
+      this.memory.writeUint64(primary, objPrev.primaryKey);
+      return cache.add(objPrev);
     },
     find_primary: <K,>(
       index: SecondaryKeyStore<K>,
@@ -927,6 +927,10 @@ export class EosVM extends Vert {
 
   finalize() {
     this.kvCache = new IteratorCache<KeyValueObject>();
+    this.idx64 = new IteratorCache<IndexObject<bigint>>();
+    this.idx128 = new IteratorCache<IndexObject<bigint>>();
+    this.idx256 = new IteratorCache<IndexObject<Buffer>>();
+    this.idxDouble = new IteratorCache<IndexObject<number>>();
   }
 
   getTableRow(code: string, scope: bigint, table: string, primaryKey: bigint): any {

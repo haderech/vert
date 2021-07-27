@@ -264,14 +264,6 @@ export class SecondaryKeyStore<K> {
     get: (key: IndexKey<K>) => {
       return this.bySecondary.get(key);
     },
-    begin: (tableId: number) => {
-      const lowestKey: IndexKey<K> = {
-        tableId,
-        primaryKey: 0n,
-        secondaryKey: this.secondary.lowest,
-      };
-      return this.secondary.lowerbound(lowestKey);
-    },
     penultimate: (tableId: number) => {
       const highestKey: IndexKey<K> = {
         tableId,
