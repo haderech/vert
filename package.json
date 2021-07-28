@@ -27,6 +27,7 @@
     "typescript": "^4.2.3"
   },
   "dependencies": {
+    "@conr2d/bcrypto": "^5.4.1",
     "@greymass/eosio": "^0.4.7",
     "bunyan": "^1.8.15",
     "sorted-btree": "^1.5.0"

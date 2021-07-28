@@ -5,6 +5,7 @@ import { NameToBigInt, BigIntToName } from "./utils";
 import { Table, KeyValueObject, IndexObject, SecondaryKeyStore, tableStore } from './table';
 import { IteratorCache } from "./iterator-cache";
 import crypto from 'crypto';
+import secp256k1 from '@conr2d/bcrypto/lib/secp256k1';
 
 type ptr = number;
 type i32 = number;
@@ -399,10 +400,28 @@ export class EosVM extends Vert {
       },
       recover_key: (digest: ptr, sig: ptr, siglen: i32, pub: ptr, publen: i32): i32 => {
         log.debug('recover_key');
-        return 0;
+        const signature = Buffer.from(this.memory.buffer, sig, siglen);
+        assert(signature[0] === 0, 'unsupported signature type');
+        const publicKey = secp256k1.recover(
+          Buffer.from(this.memory.buffer, digest, 32),
+          signature.slice(2),
+          (signature[1] - 27) & 0x3
+        );
+        const size = Math.min(publicKey.length + 1, publen);
+        Buffer.from(this.memory.buffer, pub, publen).set(publicKey.slice(0, size - 1), 1);
+        return size;
       },
       assert_recover_key: (digest: ptr, sig: ptr, siglen: i32, pub: ptr, publen: i32): void => {
         log.debug('assert_recover_key');
+        const signature = Buffer.from(this.memory.buffer, sig, siglen);
+        assert(signature[0] === 0, 'unsupported signature type');
+        const publicKey = Buffer.from(this.memory.buffer, pub, publen);
+        assert(publicKey[0] === 0, 'unsupported public key type');
+        assert(secp256k1.verify(
+          Buffer.from(this.memory.buffer, digest, 32),
+          signature.slice(2),
+          publicKey.slice(1)
+        ), 'recovered key is different from expected one');
       },
 
       // db

@@ -8,12 +8,36 @@ let memory;
 
 beforeEach(() => {
   vm = new EosVM(new Uint8Array());
-  memory = Memory.create(16);
+  memory = Memory.create(256);
   // @ts-ignore
   vm._memory = memory;
 });
 
 describe('eos-vm', () => {
+  describe('crypto', () => {
+    it('recover_key', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const digest = Buffer.from('cacc5e5fdb065cb9929e57766ac740c4d21b72448b1d5d9f405e25be91857c7a', 'hex');
+      const signature = Buffer.from('00204AECCC5FB93E32C68CF4041D42CF5E18365FD4C54B5B6917418D2C99046236F61838A60E65C744162A3B2597965945E53E637FEC091CEA680153E78D004230FC', 'hex');
+      const publicKey = Buffer.from('0003DD4BD191F57FC1A5235EEC881A08C31A2FBCE198F250CDEAE98A7218D37C0C2B', 'hex');
+      buffer.set(digest, 0);
+      buffer.set(signature, 32);
+      vm.imports.env.recover_key(0, 32, 66, 98, 34);
+      expect(Buffer.compare(buffer.slice(98, 132), publicKey)).to.equal(0);
+    });
+
+    it('assert_recover_key', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const digest = Buffer.from('cacc5e5fdb065cb9929e57766ac740c4d21b72448b1d5d9f405e25be91857c7a', 'hex');
+      const signature = Buffer.from('00204AECCC5FB93E32C68CF4041D42CF5E18365FD4C54B5B6917418D2C99046236F61838A60E65C744162A3B2597965945E53E637FEC091CEA680153E78D004230FC', 'hex');
+      const publicKey = Buffer.from('0003DD4BD191F57FC1A5235EEC881A08C31A2FBCE198F250CDEAE98A7218D37C0C2B', 'hex');
+      buffer.set(digest, 0);
+      buffer.set(signature, 32);
+      buffer.set(publicKey, 98);
+      vm.imports.env.assert_recover_key(0, 32, 66, 98, 34); // this throws an error when failed
+    });
+  });
+
   describe('print', () => {
     it('prints', () => {
       const buffer = Buffer.from(memory.buffer);
