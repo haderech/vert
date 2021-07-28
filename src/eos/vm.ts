@@ -71,6 +71,7 @@ class EosVMContext {
   first_receiver?: bigint;
   timestamp: bigint;
   data?: Uint8Array;
+  console: string = '';
 }
 
 export class EosVM extends Vert {
@@ -830,46 +831,50 @@ export class EosVM extends Vert {
       // print
       prints: (msg: i32): void => {
         log.debug('prints');
-        console.log(this.memory.readString(msg));
+        this.context.console += this.memory.readString(msg);
       },
       prints_l: (msg: i32, len: i32): void => {
         log.debug('prints_l');
-        console.log(this.memory.readString(msg, len));
+        this.context.console += this.memory.readString(msg, len);
       },
       printi: (value: i64): void => {
         log.debug('printi');
-        console.log(value.toString());
+        this.context.console += value.toString();
       },
       printui: (value: i64): void => {
         log.debug('printui');
-        console.log(BigInt.asUintN(64, value).toString());
+        this.context.console += BigInt.asUintN(64, value).toString();
       },
       printi128: (value: i32): void => {
         log.debug('printi128');
-        console.log(this.memory.readInt128(value).toString());
+        this.context.console += this.memory.readInt128(value).toString();
       },
       printui128: (value: i32): void => {
         log.debug('printui128');
-        console.log(this.memory.readUint128(value).toString());
+        this.context.console += this.memory.readUint128(value).toString();
       },
       printsf: (value: f32): void => {
         log.debug('printsf');
-        console.log(value);
+        // TODO: print to fit precision
+        this.context.console += value.toString();
       },
       printdf: (value: f64): void => {
         log.debug('printdf');
-        console.log(value);
+        // TODO: print to fit precision
+        this.context.console += value.toString();
       },
       printqf: (value: i32): void => {
-        log.debug('printdf');
+        log.debug('printqf');
+        // TODO: print to fit precision
+        this.context.console += value.toString();
       },
       printn: (value: i64): void => {
         log.debug('printn');
-        console.log(BigIntToName(value).toString());
+        this.context.console += BigIntToName(value).toString();
       },
       printhex: (data: i32, len: i32): void => {
         log.debug('printhex');
-        console.log(this.memory.readHex(data, len));
+        this.context.console += this.memory.readHex(data, len);
       },
 
       // TODO: privileged APIs
@@ -1046,6 +1051,12 @@ export class EosVM extends Vert {
     },
   };
 
+  get console(): string {
+    const str = this.context.console;
+    this.context.console = '';
+    return str;
+  }
+
   setAbi(abi: any) {
     this.abi = ABI.from(abi);
     this.abi.actions.forEach((action) => {
@@ -1080,6 +1091,9 @@ export class EosVM extends Vert {
   }
 
   finalize() {
+    if (this.context.console.length) {
+      console.log(this.console);
+    }
     this.kvCache = new IteratorCache<KeyValueObject>();
     this.idx64 = new IteratorCache<IndexObject<bigint>>();
     this.idx128 = new IteratorCache<IndexObject<bigint>>();
