@@ -14,6 +14,20 @@ function compareUint8Array(a: Uint8Array, b: Uint8Array) {
   return va.byteLength < vb.byteLength ? -1 : va.byteLength > vb.byteLength ? 1 : 0;
 }
 
+function concatUint8Array(u8: Uint8Array[]): Uint8Array {
+  let size = 0;
+  for (let i = 0; i < u8.length; ++i) {
+    size += u8[i].length;
+  }
+  const buffer = new Uint8Array(size);
+  let offset = 0;
+  for (let i = 0; i < u8.length; ++i) {
+    buffer.set(u8[i], offset);
+    offset += u8[i].length;
+  }
+  return buffer;
+}
+
 function uint8ArrayToDataView(u8: Uint8Array): DataView {
   return new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
 }
@@ -21,5 +35,6 @@ function uint8ArrayToDataView(u8: Uint8Array): DataView {
 export {
   hexToUint8Array,
   compareUint8Array,
+  concatUint8Array,
   uint8ArrayToDataView,
 }
