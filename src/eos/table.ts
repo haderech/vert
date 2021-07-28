@@ -1,6 +1,7 @@
 import { Store, PrefixedStore, StoreChange, CreateItemChange, DeleteItemChange } from "../store";
 import BTree from 'sorted-btree';
 import util from 'util';
+import { log } from '../vert';
 
 export class KeyValueObject {
   id: number;
@@ -337,6 +338,7 @@ class CreateSecondaryKeyChange implements StoreChange {
     Object.assign(this, init);
   }
   revert(store) {
+    log.debug('revert secondary key creation');
     if (this.keystore.get(this.key)) {
       throw new Error('revert stack is corrupted');
     }
@@ -352,6 +354,7 @@ class UpdateSecondaryKeyChange implements StoreChange {
     Object.assign(this, init);
   }
   revert(store) {
+    log.debug('revert secondary key update');
     if (!this.keystore.get(this.newKey)) {
       throw new Error('revert stack is corrupted');
     }
@@ -366,6 +369,7 @@ class DeleteSecondaryKeyChange implements StoreChange {
     Object.assign(this, init);
   }
   revert(store) {
+    log.debug('revert secondary key deletion');
     if (!this.keystore.get(this.key)) {
       throw new Error('revert stack is corrupted');
     }
