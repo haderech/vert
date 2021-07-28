@@ -195,7 +195,7 @@ export class SecondaryKeyStore<K> {
   byPrimary: BTree<IndexPrimaryKey,IndexObject<K>>;
   bySecondary: BTree<IndexKey<K>,IndexObject<K>>;
 
-  constructor(comparePrimary, compareSecondary) {
+  constructor(comparePrimary, compareSecondary, private parent = tableStore) {
     this.byPrimary = new BTree<IndexPrimaryKey,IndexObject<K>>(undefined, comparePrimary);
     this.bySecondary = new BTree<IndexKey<K>,IndexObject<K>>(undefined, compareSecondary);
   }
@@ -204,28 +204,26 @@ export class SecondaryKeyStore<K> {
     return this.byPrimary.get(key);
   }
 
-  set(key: IndexKey<K> | undefined, newIdx: IndexObject<K>) {
+  set(key: IndexKey<K> | undefined, newKey: IndexObject<K>, isReverting: boolean = false) {
     if (key && this.bySecondary.has(key)) {
+      if (!isReverting) {
+        this.parent.pushChanges(new UpdateSecondaryKeyChange({
+          key: this.bySecondary.get(key), newKey: newKey, keystore: this }));
+      }
       this.bySecondary.delete(key);
+    } else if (!isReverting) {
+      this.parent.pushChanges(new CreateSecondaryKeyChange({ key: newKey, keystore: this }));
     }
-    this.bySecondary.set(newIdx, newIdx);
-    this.byPrimary.set(newIdx, newIdx);
+    this.bySecondary.set(newKey, newKey);
+    this.byPrimary.set(newKey, newKey);
   }
 
-  delete(key: IndexObject<K>) {
+  delete(key: IndexKey<K>, isReverting: boolean = false) {
+    if (!isReverting) {
+      this.parent.pushChanges(new DeleteSecondaryKeyChange({ key: this.byPrimary.get(key), keystore: this }));
+    }
     this.bySecondary.delete(key);
     this.byPrimary.delete(key);
-  }
-
-  prev(key: IndexPrimaryKey) {
-    const kv = this.byPrimary.nextLowerPair(key);
-    if (kv) {
-      const [_, value] = kv;
-      if (value.tableId === key.tableId) {
-        return value;
-      }
-    }
-    return;
   }
 
   next(key: IndexPrimaryKey) {
@@ -248,14 +246,6 @@ export class SecondaryKeyStore<K> {
 
   upperbound(key: IndexPrimaryKey) {
     return this.next(key);
-  }
-
-  penultimate(tableId: number) {
-    const highestKey: IndexPrimaryKey = {
-      tableId,
-      primaryKey: BigInt.asUintN(64, -1n),
-    };
-    return this.get(highestKey) || this.prev(highestKey);
   }
 
   secondary = {
@@ -340,6 +330,49 @@ export class IndexDouble extends SecondaryKeyStore<number> {
   }
 }
 
+class CreateSecondaryKeyChange implements StoreChange {
+  key: any;
+  keystore: SecondaryKeyStore<any>;
+  constructor(init?: Partial<CreateSecondaryKeyChange>) {
+    Object.assign(this, init);
+  }
+  revert(store) {
+    if (this.keystore.get(this.key)) {
+      throw new Error('revert stack is corrupted');
+    }
+    this.keystore.delete(this.key, true);
+  }
+}
+
+class UpdateSecondaryKeyChange implements StoreChange {
+  key: any;
+  newKey: any;
+  keystore: SecondaryKeyStore<any>;
+  constructor(init?: Partial<UpdateSecondaryKeyChange>) {
+    Object.assign(this, init);
+  }
+  revert(store) {
+    if (!this.keystore.get(this.newKey)) {
+      throw new Error('revert stack is corrupted');
+    }
+    this.keystore.set(this.newKey, this.key, true);
+  }
+}
+
+class DeleteSecondaryKeyChange implements StoreChange {
+  key: any;
+  keystore: SecondaryKeyStore<any>;
+  constructor(init?: Partial<DeleteSecondaryKeyChange>) {
+    Object.assign(this, init);
+  }
+  revert(store) {
+    if (!this.keystore.get(this.key)) {
+      throw new Error('revert stack is corrupted');
+    }
+    this.keystore.set(undefined, this.key, true);
+  }
+}
+
 class TableStore extends Store<Buffer,KeyValueObject> {
   idx64 = new Index64();
   idx128 = new Index128();
@@ -348,4 +381,4 @@ class TableStore extends Store<Buffer,KeyValueObject> {
   // private idxLongDouble;
 }
 
-const tableStore = new TableStore(Table);
+export const tableStore = new TableStore(Table);

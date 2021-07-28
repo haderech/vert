@@ -1,5 +1,6 @@
 import BTree, { defaultComparator as btreeDefaultComparator } from 'sorted-btree';
 import util from 'util';
+import { log } from './vert';
 
 function defaultComparator(a: any, b: any) {
   if (util.types.isUint8Array(a) && util.types.isUint8Array(b)) {
@@ -175,13 +176,17 @@ class Store<K,V> {
       store: this,
       internal: this.store,
       prefixes: this.prefixes,
-      prefixedIndex: this.prefixesIndex,
+      prefixesIndex: this.prefixesIndex,
     };
     for (let i = this.changes.length - 1; i >= snapshot; --i) {
       this.changes[i].revert(store);
     }
     this.changes = this.changes.slice(0, snapshot);
     this.isReverting = false;
+  }
+
+  pushChanges(...changes: StoreChange[]) {
+    this.changes.push(...changes);
   }
 }
 
@@ -195,6 +200,7 @@ class CreatePrefixChange implements StoreChange {
     Object.assign(this, init);
   }
   revert(store) {
+    log.debug('revert prefix creation');
     let prefixedStore = store.store.getPrefix(this.prefix);
     if (!prefixedStore) {
       throw new Error('revert stack is corrupted');
@@ -211,6 +217,7 @@ class DeletePrefixChange implements StoreChange {
     Object.assign(this, init);
   }
   revert(store) {
+    log.debug('revert prefix deletion');
     let prefixedStore = store.store.getPrefix(this.prefixedStore.prefix());
     if (prefixedStore) {
       throw new Error('revert stack is corrupted');
@@ -227,6 +234,7 @@ class CreateItemChange implements StoreChange {
     Object.assign(this, init);
   }
   revert(store) {
+    log.debug('revert item creation');
     if (!store.internal.delete(this.key)) {
       throw new Error('revert stack is corrupted');
     }
@@ -243,9 +251,11 @@ class UpdateItemChange implements StoreChange {
     Object.assign(this, init);
   }
   revert(store) {
-    if (!store.internal.get(this.key) || !store.internal.set(this.key, this.value)) {
+    log.debug('revert item update');
+    if (!store.internal.has(this.key)) {
       throw new Error('revert stack is corrupted');
     }
+    store.internal.set(this.key, this.value);
   }
 }
 
@@ -256,9 +266,11 @@ class DeleteItemChange implements StoreChange {
     Object.assign(this, init);
   }
   revert(store) {
-    if (store.internal.get(this.key) || !store.internal.set(this.key, this.value)) {
+    log.debug('revert item deletion');
+    if (!store.internal.has(this.key)) {
       throw new Error('revert stack is corrupted');
     }
+    store.internal.set(this.key, this.value);
   }
 }
 

@@ -2,7 +2,7 @@ import assert from 'assert';
 import { ABI, Serializer } from '@greymass/eosio';
 import { log, Vert } from '../vert';
 import { NameToBigInt, BigIntToName } from "./utils";
-import { Table, KeyValueObject, IndexObject, SecondaryKeyStore } from './table';
+import { Table, KeyValueObject, IndexObject, SecondaryKeyStore, tableStore } from './table';
 import { IteratorCache } from "./iterator-cache";
 import crypto from 'crypto';
 
@@ -83,6 +83,8 @@ export class EosVM extends Vert {
   private idx256 = new IteratorCache<IndexObject<Buffer>>();
   private idxDouble = new IteratorCache<IndexObject<number>>();
   // private idxLongDouble;
+  private snapshot: number = 0;
+  private store = tableStore;
 
   private genericIndex = {
     store: <K,>(
@@ -1063,6 +1065,7 @@ export class EosVM extends Vert {
   }
 
   apply(receiver: string, first_receiver: string, action: string) {
+    this.snapshot = this.store.snapshot();
     this.context.receiver = NameToBigInt(receiver);
     this.context.first_receiver = NameToBigInt(first_receiver);
     (this.instance.exports.apply as CallableFunction)(
@@ -1070,6 +1073,10 @@ export class EosVM extends Vert {
       this.context.first_receiver,
       NameToBigInt(action));
     this.finalize();
+  }
+
+  revert() {
+    this.store.revertTo(this.snapshot);
   }
 
   finalize() {
