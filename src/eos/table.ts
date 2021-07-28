@@ -1,6 +1,5 @@
 import { Store, PrefixedStore, StoreChange, CreateItemChange, DeleteItemChange } from "../store";
 import BTree from 'sorted-btree';
-import util from 'util';
 import { log } from '../vert';
 
 export class KeyValueObject {
@@ -176,7 +175,7 @@ export class IndexObject<K> implements IndexKey<K> {
 
   clone(): IndexObject<K> {
     const obj = { ...this };
-    if (util.types.isUint8Array(obj.secondaryKey)) {
+    if (obj.secondaryKey instanceof Uint8Array) {
       obj.secondaryKey = (obj.secondaryKey as Uint8Array).slice() as any as K;
       return obj;
     }

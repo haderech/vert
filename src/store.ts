@@ -1,10 +1,10 @@
 import BTree, { defaultComparator as btreeDefaultComparator } from 'sorted-btree';
-import util from 'util';
+import { compareUint8Array } from './util';
 import { log } from './vert';
 
 function defaultComparator(a: any, b: any) {
-  if (util.types.isUint8Array(a) && util.types.isUint8Array(b)) {
-    return Buffer.compare(a, b);
+  if (a instanceof Uint8Array && b instanceof Uint8Array) {
+    return compareUint8Array(a, b);
   }
   return btreeDefaultComparator(a, b);
 }

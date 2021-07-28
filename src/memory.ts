@@ -9,7 +9,7 @@ export class Memory {
     return this.memory.buffer;
   }
 
-  readString(offset: number, length: number = 0) {
+  readString(offset: number, length: number = 0): string {
     if (!length) {
       const memoryView = new Uint8Array(this.memory.buffer, 0, this.memory.buffer.byteLength);
       for (let i = offset; i < memoryView.length; ++i) {
@@ -19,29 +19,29 @@ export class Memory {
         }
       }
     }
-    return Buffer.from(new Uint8Array(this.memory.buffer, offset, length)).toString();
+    return new TextDecoder().decode(new Uint8Array(this.memory.buffer, offset, length));
   }
 
-  readUInt64(offset: number) {
-    return Buffer.from(this.memory.buffer, offset, 8).readBigUInt64LE();
+  readUInt64(offset: number): bigint {
+    return new DataView(this.memory.buffer, offset, 8).getBigUint64(0, true);
   }
 
-  readUInt128(offset: number) {
-    const buffer = Buffer.from(this.memory.buffer, offset, 16);
-    const low = buffer.readBigUInt64LE(0);
-    const high = buffer.readBigUInt64LE(8);
+  readUInt128(offset: number): bigint {
+    const buffer = new DataView(this.memory.buffer, offset, 16);
+    const low = buffer.getBigUint64(0, true);
+    const high = buffer.getBigUint64(8, true);
     return (high << 64n) | low;
   }
 
-  readInt128(offset: number) {
+  readInt128(offset: number): bigint {
     return BigInt.asIntN(128, this.readUInt128(offset));
   }
 
-  readHex(offset: number, length: number) {
-    return Buffer.from(this.memory.buffer, offset, length).toString('hex');
+  readHex(offset: number, length: number): string {
+    return [...new Uint8Array(this.memory.buffer, offset, length)].map(v => v.toString(16).padStart(2, '0')).join('');
   }
 
-  writeUInt64(offset: number, value: bigint) {
-    Buffer.from(this.memory.buffer, offset, 8).writeBigUInt64LE(value);
+  writeUInt64(offset: number, value: bigint): void {
+    return new DataView(this.memory.buffer, offset, 8).setBigUint64(0, value, true);
   }
 }
