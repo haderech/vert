@@ -463,7 +463,7 @@ export class EosVM extends Vert {
         if (!kvNext) {
           return this.kvCache.getEndIteratorByTableId(kv.tableId);
         }
-        Buffer.from(this.memory.buffer, primary, 8).writeBigUInt64LE(kvNext.primaryKey);
+        this.memory.writeUint64(primary, kvNext.primaryKey);
         return this.kvCache.add(kvNext);
       },
       db_previous_i64: (iterator: i32, primary: ptr): i32 => {
@@ -473,7 +473,7 @@ export class EosVM extends Vert {
           assert(tab, 'not a valid end iterator');
           const kv = tab.penultimate();
           if (!kv) return -1;
-          Buffer.from(this.memory.buffer, primary, 8).writeBigUInt64LE(kv.primaryKey);
+          this.memory.writeUint64(primary, kv.primaryKey);
           return this.kvCache.add(kv);
         }
         const kv = this.kvCache.get(iterator);
@@ -481,7 +481,7 @@ export class EosVM extends Vert {
         if (!kvPrev) {
           return -1;
         }
-        Buffer.from(this.memory.buffer, primary, 8).writeBigUInt64LE(kvPrev.primaryKey);
+        this.memory.writeUint64(primary, kvPrev.primaryKey);
         return this.kvCache.add(kvPrev);
       },
       db_find_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
