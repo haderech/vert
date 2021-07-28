@@ -377,7 +377,7 @@ class DeleteSecondaryKeyChange implements StoreChange {
   }
 }
 
-class TableStore extends Store<Buffer,KeyValueObject> {
+export class TableStore extends Store<Buffer,KeyValueObject> {
   idx64 = new Index64();
   idx128 = new Index128();
   idx256 = new Index256();

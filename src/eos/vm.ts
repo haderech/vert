@@ -1,8 +1,8 @@
 import assert from 'assert';
 import { ABI, Serializer } from '@greymass/eosio';
 import { log, Vert } from '../vert';
-import { NameToBigInt, BigIntToName } from "./utils";
-import { Table, KeyValueObject, IndexObject, SecondaryKeyStore, tableStore } from './table';
+import { Name } from "./types";
+import { Table, KeyValueObject, IndexObject, SecondaryKeyStore, TableStore, tableStore } from './table';
 import { IteratorCache } from "./iterator-cache";
 import crypto from 'crypto';
 import secp256k1 from '@conr2d/bcrypto/lib/secp256k1';
@@ -79,14 +79,17 @@ export class EosVM extends Vert {
   // TODO
   private context: EosVMContext = new EosVMContext();
   private kvCache = new IteratorCache<KeyValueObject>();
-  private abi: any;
   private idx64 = new IteratorCache<IndexObject<bigint>>();
   private idx128 = new IteratorCache<IndexObject<bigint>>();
   private idx256 = new IteratorCache<IndexObject<Buffer>>();
   private idxDouble = new IteratorCache<IndexObject<number>>();
   // private idxLongDouble;
   private snapshot: number = 0;
-  private store = tableStore;
+  private abi: any;
+
+  constructor(bytes: Uint8Array, private store: TableStore = tableStore) {
+    super(bytes);
+  }
 
   private genericIndex = {
     store: <K,>(
@@ -152,7 +155,7 @@ export class EosVM extends Vert {
       if (!obj) {
         return ei;
       }
-      this.memory.writeUint64(primary, obj.primaryKey);
+      this.memory.writeUInt64(primary, obj.primaryKey);
       return cache.add(obj);
     },
     lowerbound_secondary: <K,>(
@@ -171,7 +174,7 @@ export class EosVM extends Vert {
         secondaryKey: conv.from(secondary)
       });
       if (!obj) return ei;
-      this.memory.writeUint64(primary, obj.primaryKey);
+      this.memory.writeUInt64(primary, obj.primaryKey);
       conv.to(secondary, obj.secondaryKey);
       return cache.add(obj);
     },
@@ -191,7 +194,7 @@ export class EosVM extends Vert {
         secondaryKey: conv.from(secondary)
       });
       if (!obj) return ei;
-      this.memory.writeUint64(primary, obj.primaryKey);
+      this.memory.writeUInt64(primary, obj.primaryKey);
       conv.to(secondary, obj.secondaryKey);
       return cache.add(obj);
     },
@@ -219,7 +222,7 @@ export class EosVM extends Vert {
       if (!objNext) {
         return cache.getEndIteratorByTableId(obj.tableId);
       }
-      this.memory.writeUint64(primary, objNext.primaryKey);
+      this.memory.writeUInt64(primary, objNext.primaryKey);
       return cache.add(objNext);
     },
     previous_secondary: <K,>(
@@ -234,7 +237,7 @@ export class EosVM extends Vert {
         if (!obj) {
           return -1;
         }
-        this.memory.writeUint64(primary, obj.primaryKey);
+        this.memory.writeUInt64(primary, obj.primaryKey);
         return cache.add(obj);
       }
       const obj = cache.get(iterator);
@@ -242,7 +245,7 @@ export class EosVM extends Vert {
       if (!objPrev) {
         return -1;
       }
-      this.memory.writeUint64(primary, objPrev.primaryKey);
+      this.memory.writeUInt64(primary, objPrev.primaryKey);
       return cache.add(objPrev);
     },
     find_primary: <K,>(
@@ -482,7 +485,7 @@ export class EosVM extends Vert {
         if (!kvNext) {
           return this.kvCache.getEndIteratorByTableId(kv.tableId);
         }
-        this.memory.writeUint64(primary, kvNext.primaryKey);
+        this.memory.writeUInt64(primary, kvNext.primaryKey);
         return this.kvCache.add(kvNext);
       },
       db_previous_i64: (iterator: i32, primary: ptr): i32 => {
@@ -492,7 +495,7 @@ export class EosVM extends Vert {
           assert(tab, 'not a valid end iterator');
           const kv = tab.penultimate();
           if (!kv) return -1;
-          this.memory.writeUint64(primary, kv.primaryKey);
+          this.memory.writeUInt64(primary, kv.primaryKey);
           return this.kvCache.add(kv);
         }
         const kv = this.kvCache.get(iterator);
@@ -500,7 +503,7 @@ export class EosVM extends Vert {
         if (!kvPrev) {
           return -1;
         }
-        this.memory.writeUint64(primary, kvPrev.primaryKey);
+        this.memory.writeUInt64(primary, kvPrev.primaryKey);
         return this.kvCache.add(kvPrev);
       },
       db_find_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
@@ -870,7 +873,7 @@ export class EosVM extends Vert {
       },
       printui128: (value: i32): void => {
         log.debug('printui128');
-        this.context.console += this.memory.readUint128(value).toString();
+        this.context.console += this.memory.readUInt128(value).toString();
       },
       printsf: (value: f32): void => {
         log.debug('printsf');
@@ -889,7 +892,7 @@ export class EosVM extends Vert {
       },
       printn: (value: i64): void => {
         log.debug('printn');
-        this.context.console += BigIntToName(value).toString();
+        this.context.console += Name.from(value).toString();
       },
       printhex: (data: i32, len: i32): void => {
         log.debug('printhex');
@@ -1098,12 +1101,12 @@ export class EosVM extends Vert {
 
   apply(receiver: string, first_receiver: string, action: string) {
     this.snapshot = this.store.snapshot();
-    this.context.receiver = NameToBigInt(receiver);
-    this.context.first_receiver = NameToBigInt(first_receiver);
+    this.context.receiver = Name.from(receiver).toBigInt();
+    this.context.first_receiver = Name.from(first_receiver).toBigInt();
     (this.instance.exports.apply as CallableFunction)(
       this.context.receiver,
       this.context.first_receiver,
-      NameToBigInt(action));
+      Name.from(action).toBigInt());
     this.finalize();
   }
 
@@ -1123,7 +1126,7 @@ export class EosVM extends Vert {
   }
 
   getTableRow(code: string, scope: bigint, table: string, primaryKey: bigint): any {
-    const tab = findTable(NameToBigInt(code), scope, NameToBigInt(table));
+    const tab = findTable(Name.from(code).toBigInt(), scope, Name.from(table).toBigInt());
     const kv = tab?.get(primaryKey);
     if (!kv) {
       return;
