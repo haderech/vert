@@ -45,8 +45,16 @@ const SecondaryKeyConverter = {
     },
   },
   checksum256: {
-    from: (buffer: Buffer) => buffer,
-    to: (buffer: Buffer, value: Buffer) => buffer.set(value),
+    from: (buffer: Buffer) => {
+      const low = (buffer as Uint8Array).slice(0, 16);
+      const high = (buffer as Uint8Array).slice(16, 32);
+      return Buffer.concat([low.reverse(), high.reverse()]);
+    },
+    to: (buffer: Buffer, value: Buffer) => {
+      const low = (value as Uint8Array).slice(0, 16);
+      const high = (buffer as Uint8Array).slice(16, 32);
+      buffer.set(Buffer.concat([low.reverse(), high.reverse()]));
+    },
   },
   double: {
     from: (buffer: Buffer): number => buffer.readDoubleLE(),
@@ -586,42 +594,196 @@ export class EosVM extends Vert {
       },
 
       // uint128_t secondary index api
-      db_idx128_store: () => {},
-      db_idx128_update: () => {},
-      db_idx128_remove: () => {},
-      db_idx128_find_secondary: () => {},
-      db_idx128_find_primary: () => {},
-      db_idx128_lowerbound: () => {},
-      db_idx128_upperbound: () => {},
-      db_idx128_end: () => {},
-      db_idx128_next: () => {},
-      db_idx128_previous: () => {},
+      db_idx128_store: (_scope: bigint, _table: bigint, _payer: bigint, _id: bigint, secondary: ptr): i32 => {
+        log.debug('db_idx128_store');
+        const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
+
+        const itr = this.genericIndex.store(
+          Table.idx128(), this.idx128,
+          scope, table, payer, id, Buffer.from(this.memory.buffer, secondary, 16), SecondaryKeyConverter.uint128);
+        return itr;
+      },
+      db_idx128_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
+        log.debug('db_idx128_update');
+        const payer = BigInt.asUintN(64, _payer);
+        this.genericIndex.update(Table.idx128(), this.idx128, iterator, payer,
+          Buffer.from(this.memory.buffer, secondary, 16), SecondaryKeyConverter.uint128);
+      },
+      db_idx128_remove: (iterator: number): void => {
+        log.debug('db_idx128_remove');
+        this.genericIndex.remove(Table.idx128(), this.idx128, iterator);
+      },
+      db_idx128_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx128_find_secondary');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.find_secondary(Table.idx128(), this.idx128,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
+      },
+      db_idx128_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
+        log.debug('db_idx128_find_primary');
+        const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
+
+        return this.genericIndex.find_primary(Table.idx128(), this.idx128,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 16), primaryKey, SecondaryKeyConverter.uint128);
+      },
+      db_idx128_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx128_lowerbound');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.lowerbound_secondary(Table.idx128(), this.idx128,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
+      },
+      db_idx128_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx128_upperbound');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.upperbound_secondary(Table.idx128(), this.idx128,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
+      },
+      db_idx128_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
+        log.debug('db_idx128_end');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.end_secondary(Table.idx128(), this.idx128, code, scope, table);
+      },
+      db_idx128_next: (iterator: number, primary: ptr): i32 => {
+        log.debug('db_idx128_next');
+        return this.genericIndex.next_secondary(Table.idx128(), this.idx128, iterator, primary);
+      },
+      db_idx128_previous: (iterator: number, primary: ptr): i32 => {
+        log.debug('db_idx128_previous');
+        return this.genericIndex.previous_secondary(Table.idx128(), this.idx128, iterator, primary);
+      },
 
       // 256-bit secondary index api
-      db_idx256_store: () => {},
-      db_idx256_update: () => {},
-      db_idx256_remove: () => {},
-      db_idx256_find_secondary: () => {},
-      db_idx256_find_primary: () => {},
-      db_idx256_lowerbound: () => {},
-      db_idx256_upperbound: () => {},
-      db_idx256_end: () => {},
-      db_idx256_next: () => {},
-      db_idx256_previous: () => {},
+      db_idx256_store: (_scope: bigint, _table: bigint, _payer: bigint, _id: bigint, secondary: ptr): i32 => {
+        log.debug('db_idx256_store');
+        const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
+
+        const itr = this.genericIndex.store(
+          Table.idx256(), this.idx256,
+          scope, table, payer, id, Buffer.from(this.memory.buffer, secondary, 32), SecondaryKeyConverter.checksum256);
+        return itr;
+      },
+      db_idx256_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
+        log.debug('db_idx256_update');
+        const payer = BigInt.asUintN(64, _payer);
+        this.genericIndex.update(Table.idx256(), this.idx256, iterator, payer,
+          Buffer.from(this.memory.buffer, secondary, 32), SecondaryKeyConverter.checksum256);
+      },
+      db_idx256_remove: (iterator: number): void => {
+        log.debug('db_idx256_remove');
+        this.genericIndex.remove(Table.idx256(), this.idx256, iterator);
+      },
+      db_idx256_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx256_find_secondary');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.find_secondary(Table.idx256(), this.idx256,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
+      },
+      db_idx256_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
+        log.debug('db_idx256_find_primary');
+        const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
+
+        return this.genericIndex.find_primary(Table.idx256(), this.idx256,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 32), primaryKey, SecondaryKeyConverter.checksum256);
+      },
+      db_idx256_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx256_lowerbound');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.lowerbound_secondary(Table.idx256(), this.idx256,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
+      },
+      db_idx256_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx256_upperbound');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.upperbound_secondary(Table.idx256(), this.idx256,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
+      },
+      db_idx256_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
+        log.debug('db_idx256_end');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.end_secondary(Table.idx256(), this.idx256, code, scope, table);
+      },
+      db_idx256_next: (iterator: number, primary: ptr): i32 => {
+        log.debug('db_idx256_next');
+        return this.genericIndex.next_secondary(Table.idx256(), this.idx256, iterator, primary);
+      },
+      db_idx256_previous: (iterator: number, primary: ptr): i32 => {
+        log.debug('db_idx256_previous');
+        return this.genericIndex.previous_secondary(Table.idx256(), this.idx256, iterator, primary);
+      },
 
       // double secondary index api
-      db_idx_double_store: () => {},
-      db_idx_double_update: () => {},
-      db_idx_double_remove: () => {},
-      db_idx_double_find_secondary: () => {},
-      db_idx_double_find_primary: () => {},
-      db_idx_double_lowerbound: () => {},
-      db_idx_double_upperbound: () => {},
-      db_idx_double_end: () => {},
-      db_idx_double_next: () => {},
-      db_idx_double_previous: () => {},
+      db_idx_double_store: (_scope: bigint, _table: bigint, _payer: bigint, _id: bigint, secondary: ptr): i32 => {
+        log.debug('db_idx_double_store');
+        const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
+
+        const itr = this.genericIndex.store(
+          Table.idxDouble(), this.idxDouble,
+          scope, table, payer, id, Buffer.from(this.memory.buffer, secondary, 8), SecondaryKeyConverter.double);
+        return itr;
+      },
+      db_idx_double_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
+        log.debug('db_idx_double_update');
+        const payer = BigInt.asUintN(64, _payer);
+        this.genericIndex.update(Table.idxDouble(), this.idxDouble, iterator, payer,
+          Buffer.from(this.memory.buffer, secondary, 8), SecondaryKeyConverter.double);
+      },
+      db_idx_double_remove: (iterator: number): void => {
+        log.debug('db_idx_double_remove');
+        this.genericIndex.remove(Table.idxDouble(), this.idxDouble, iterator);
+      },
+      db_idx_double_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx_double_find_secondary');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.find_secondary(Table.idxDouble(), this.idxDouble,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
+      },
+      db_idx_double_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
+        log.debug('db_idx_double_find_primary');
+        const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
+
+        return this.genericIndex.find_primary(Table.idxDouble(), this.idxDouble,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primaryKey, SecondaryKeyConverter.double);
+      },
+      db_idx_double_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx_double_lowerbound');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.lowerbound_secondary(Table.idxDouble(), this.idxDouble,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
+      },
+      db_idx_double_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
+        log.debug('db_idx_double_upperbound');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.upperbound_secondary(Table.idxDouble(), this.idxDouble,
+          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
+      },
+      db_idx_double_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
+        log.debug('db_idx_double_end');
+        const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+
+        return this.genericIndex.end_secondary(Table.idxDouble(), this.idxDouble, code, scope, table);
+      },
+      db_idx_double_next: (iterator: number, primary: ptr): i32 => {
+        log.debug('db_idx_double_next');
+        return this.genericIndex.next_secondary(Table.idxDouble(), this.idxDouble, iterator, primary);
+      },
+      db_idx_double_previous: (iterator: number, primary: ptr): i32 => {
+        log.debug('db_idx_double_previous');
+        return this.genericIndex.previous_secondary(Table.idxDouble(), this.idxDouble, iterator, primary);
+      },
 
       // long double secondary index api
+      /*
       db_idx_long_double_store: () => {},
       db_idx_long_double_update: () => {},
       db_idx_long_double_remove: () => {},
@@ -632,6 +794,7 @@ export class EosVM extends Vert {
       db_idx_long_double_end: () => {},
       db_idx_long_double_next: () => {},
       db_idx_long_double_previous: () => {},
+      */
 
       // permission
       check_transaction_authorization: (
@@ -833,6 +996,7 @@ export class EosVM extends Vert {
       },
 
       // TODO: compiler-rt APIs
+      /*
       __ashlti3: () => {},
       __ashrti3: () => {},
       __lshlti3: () => {},
@@ -876,6 +1040,7 @@ export class EosVM extends Vert {
       __letf2: () => {}, //
       __lttf2: () => {},
       __unordtf2: () => {},
+      */
     },
   };
 
