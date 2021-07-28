@@ -878,6 +878,10 @@ export class EosVM extends Vert {
       },
 
       // TODO: privileged APIs
+      set_proposed_producers: (data: ptr, size: number): bigint => { return 0n; },
+      set_blockchain_parameters_packed: (data: ptr, len: number): void => {},
+      get_blockchain_parameters_packed: (data: ptr, len: number): number => { return 0; },
+
       // TODO: security_group APIs
 
       // system
@@ -1003,7 +1007,6 @@ export class EosVM extends Vert {
       },
 
       // TODO: compiler-rt APIs
-      /*
       __ashlti3: () => {},
       __ashrti3: () => {},
       __lshlti3: () => {},
@@ -1013,15 +1016,15 @@ export class EosVM extends Vert {
       __multi3: () => {},
       __modti3: () => {},
       __umodti3: () => {},
-      __addtf3: () => {}, //
-      __subtf3: () => {}, //
-      __multf3: () => {}, //
-      __divtf3: () => {}, //
+      __addtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => {},
+      __subtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => {},
+      __multf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => {},
+      __divtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => {},
       __negtf2: () => {},
-      __extendsftf2: () => {}, //
-      __extenddftf2: () => {}, //
-      __trunctfdf2: () => {}, //
-      __trunctfsf2: () => {}, //
+      __extendsftf2: (a: ptr, b: f32): void => {},
+      __extenddftf2: (a: ptr, b: f64): void => {},
+      __trunctfdf2: (a: i64, b: i64): f64 => { return 0.0; },
+      __trunctfsf2: (a: i64, b: i64): f32 => { return 0.0; },
       __fixtfsi: () => {},
       __fixtfdi: () => {},
       __fixtfti: () => {},
@@ -1033,21 +1036,20 @@ export class EosVM extends Vert {
       __fixunssfti: () => {},
       __fixunsdfti: () => {},
       __floatsidf: () => {},
-      __floatsitf: () => {}, //
+      __floatsitf: (a: ptr, b: i32): void => {},
       __floatditf: () => {},
-      __floatunsitf: () => {}, //
+      __floatunsitf: (a: ptr, b: i32): void => {},
       __floatunditf: () => {},
       __floattidf: () => {},
       __floatuntidf: () => {},
       __cmptf2: () => {},
-      __eqtf2: () => {}, //
-      __netf2: () => {}, //
-      __getf2: () => {}, //
+      __eqtf2: (a: i64, b: i64, c: i64, d: i64): i32 => { return 0; },
+      __netf2: (a: i64, b: i64, c: i64, d: i64): i32 => { return 0; },
+      __getf2: (a: i64, b: i64, c: i64, d: i64): i32 => { return 0; },
       __gttf2: () => {},
-      __letf2: () => {}, //
+      __letf2: (a: i64, b: i64, c: i64, d: i64): i32 => { return 0; },
       __lttf2: () => {},
       __unordtf2: () => {},
-      */
     },
   };
 
