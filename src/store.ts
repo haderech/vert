@@ -71,7 +71,7 @@ abstract class PrefixedStore<K,V> {
   abstract highestKey(): any;
   abstract parsePrefix(key: any): any;
 
-  protected constructor(store: Store<any,V>) {
+  protected constructor(store: Store<any,V>, options?: any) {
     this.store = store;
   }
 }
@@ -99,13 +99,13 @@ class Store<K,V> {
     return this._seq;
   }
 
-  createPrefix(prefix: any) {
+  createPrefix(prefix: any, options?: any) {
     let prefixedStore = this.prefixes.get(prefix);
     if (prefixedStore) {
       throw new Error('prefix uniqueness violation');
     }
     this.changes.push(new CreatePrefixChange({ prefix }));
-    prefixedStore = new this.Prefix(this);
+    prefixedStore = new this.Prefix(this, options);
     prefixedStore.id = this._seq++;
     this.prefixes.set(prefix, prefixedStore);
     this.prefixesIndex.set(prefixedStore.id, prefixedStore);

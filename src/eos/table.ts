@@ -29,25 +29,6 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
   private seq = 0;
   private _size = 0;
 
-  static create(code: bigint, scope: bigint, table: bigint, payer: bigint, store: TableStore = tableStore): Table {
-    const prefix = Table.serializePrefix(code, scope, table);
-    const tab = store.createPrefix(Table.serializePrefix(code, scope, table)) as Table;
-    tab._code = code;
-    tab._scope = scope;
-    tab._table = table;
-    tab.payer = payer;
-    tab._prefix = prefix;
-    return tab;
-  }
-
-  static find(code: bigint, scope: bigint, table: bigint, store: TableStore = tableStore) {
-    return store.getPrefix(Table.serializePrefix(code, scope, table)) as Table;
-  }
-
-  static getById(id: number, store: TableStore = tableStore) {
-    return store.getPrefixById(id) as Table;
-  }
-
   static serializePrefix(code: bigint, scope: bigint, table: bigint): Buffer {
     let buf = Buffer.alloc(24);
     buf.writeBigUInt64BE(code);
@@ -62,20 +43,13 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
     return buffer;
   }
 
-  static idx64(store: TableStore = tableStore): Index64 {
-    return store.idx64;
-  }
-
-  static idx128(store: TableStore = tableStore): Index128 {
-    return store.idx128;
-  }
-
-  static idx256(store: TableStore = tableStore): Index256 {
-    return store.idx256;
-  }
-
-  static idxDouble(store: TableStore = tableStore): IndexDouble {
-    return store.idxDouble;
+  constructor(store: TableStore, options?: any) {
+    super(store, options);
+    this._code = options.code;
+    this._scope = options.scope;
+    this._table = options.table;
+    this.payer = options.payer;
+    this._prefix = options.prefix;
   }
 
   get code(): bigint {
@@ -195,7 +169,7 @@ export class SecondaryKeyStore<K> {
   byPrimary: BTree<IndexPrimaryKey,IndexObject<K>>;
   bySecondary: BTree<IndexKey<K>,IndexObject<K>>;
 
-  constructor(comparePrimary, compareSecondary, private parent = tableStore) {
+  constructor(private parent: TableStore, comparePrimary, compareSecondary) {
     this.byPrimary = new BTree<IndexPrimaryKey,IndexObject<K>>(undefined, comparePrimary);
     this.bySecondary = new BTree<IndexKey<K>,IndexObject<K>>(undefined, compareSecondary);
   }
@@ -299,32 +273,32 @@ export class SecondaryKeyStore<K> {
 }
 
 export class Index64 extends SecondaryKeyStore<bigint> {
-  constructor() {
-    super(IndexObject.compare, IndexObject.comparePrimitives);
+  constructor(store: TableStore) {
+    super(store, IndexObject.compare, IndexObject.comparePrimitives);
     this.secondary.lowest = 0n;
     this.secondary.highest = BigInt.asUintN(64, -1n);
   }
 }
 
 export class Index128 extends SecondaryKeyStore<bigint> {
-  constructor() {
-    super(IndexObject.compare, IndexObject.comparePrimitives);
+  constructor(store: TableStore) {
+    super(store, IndexObject.compare, IndexObject.comparePrimitives);
     this.secondary.lowest = 0n;
     this.secondary.highest = BigInt.asUintN(128, -1n);
   }
 }
 
 export class Index256 extends SecondaryKeyStore<Buffer> {
-  constructor() {
-    super(IndexObject.compare, IndexObject.compareBuffer);
+  constructor(store: TableStore) {
+    super(store, IndexObject.compare, IndexObject.compareBuffer);
     this.secondary.lowest = Buffer.alloc(32, 0);
     this.secondary.highest = Buffer.alloc(32, 255);
   }
 }
 
 export class IndexDouble extends SecondaryKeyStore<number> {
-  constructor() {
-    super(IndexObject.compare, IndexObject.comparePrimitives);
+  constructor(store: TableStore) {
+    super(store, IndexObject.compare, IndexObject.comparePrimitives);
     this.secondary.lowest = 0;
     this.secondary.highest = Number.MAX_VALUE;
   }
@@ -377,11 +351,29 @@ class DeleteSecondaryKeyChange implements StoreChange {
 }
 
 export class TableStore extends Store<Buffer,KeyValueObject> {
-  idx64 = new Index64();
-  idx128 = new Index128();
-  idx256 = new Index256();
-  idxDouble = new IndexDouble();
+  idx64 = new Index64(this);
+  idx128 = new Index128(this);
+  idx256 = new Index256(this);
+  idxDouble = new IndexDouble(this);
   // private idxLongDouble;
-}
 
-export const tableStore = new TableStore(Table);
+  constructor(Prefix = Table) {
+   super(Prefix);
+  }
+
+  createTable(code: bigint, scope: bigint, table: bigint, payer: bigint): Table {
+    const prefix = Table.serializePrefix(code, scope, table);
+    const tab = this.createPrefix(Table.serializePrefix(code, scope, table), {
+      code, scope, table, payer, prefix,
+    }) as Table;
+    return tab;
+  }
+
+  findTable(code: bigint, scope: bigint, table: bigint) {
+    return this.getPrefix(Table.serializePrefix(code, scope, table)) as Table;
+  }
+
+  getTableById(id: number) {
+    return this.getPrefixById(id) as Table;
+  }
+}
