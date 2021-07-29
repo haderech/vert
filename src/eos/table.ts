@@ -1,7 +1,6 @@
 import { Store, PrefixedStore, StoreChange, CreateItemChange, DeleteItemChange } from "../store";
 import BTree from 'sorted-btree';
 import { log } from '../vert';
-import { compareUint8Array, concatUint8Array, uint8ArrayToDataView } from "../util";
 
 export class KeyValueObject {
   id: number;
@@ -26,7 +25,7 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
   private _scope: bigint;
   private _table: bigint;
   private payer: bigint;
-  private _prefix?: Uint8Array;
+  private _prefix?: Buffer;
   private seq = 0;
   private _size = 0;
 
@@ -49,18 +48,17 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
     return store.getPrefixById(id) as Table;
   }
 
-  static serializePrefix(code: bigint, scope: bigint, table: bigint): Uint8Array {
-    const buffer = new Uint8Array(24);
-    const view = uint8ArrayToDataView(buffer);
-    view.setBigUint64(0, code, true);
-    view.setBigUint64(8, scope, true);
-    view.setBigUint64(16, table, true);
-    return buffer;
+  static serializePrefix(code: bigint, scope: bigint, table: bigint): Buffer {
+    let buf = Buffer.alloc(24);
+    buf.writeBigUInt64BE(code);
+    buf.writeBigUInt64BE(scope, 8);
+    buf.writeBigUInt64BE(table, 16);
+    return buf;
   }
 
-  static bigintToBuffer(v: bigint): Uint8Array {
-    const buffer = new Uint8Array(8);
-    uint8ArrayToDataView(buffer).setBigUint64(0, v);
+  static bigintToBuffer(v: bigint): Buffer {
+    const buffer = Buffer.alloc(8);
+    buffer.writeBigUInt64BE(v);
     return buffer;
   }
 
@@ -96,15 +94,15 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
     return this._size;
   }
 
-  prefix(): Uint8Array {
+  prefix(): Buffer {
     if (!this._prefix) {
       this._prefix = Table.serializePrefix(this.code, this.scope, this.table);
     }
     return this._prefix;
   }
 
-  key(key: bigint): Uint8Array {
-    return concatUint8Array([this.prefix(), Table.bigintToBuffer(key)]);
+  key(key: bigint) {
+    return Buffer.concat([this.prefix(), Table.bigintToBuffer(key)]);
   }
 
   lowestKey(): bigint {
@@ -115,9 +113,8 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
     return 18446744073709551615n;
   }
 
-  parsePrefix(key: Uint8Array): Uint8Array {
-    //return key.slice(0, 24);
-    return new Uint8Array(key.buffer, key.byteOffset, 24);
+  parsePrefix(key: Buffer) {
+    return key.slice(0, 24);
   }
 
   set(key: bigint, value: KeyValueObject) {
@@ -171,9 +168,9 @@ export class IndexObject<K> implements IndexKey<K> {
       ((a.secondaryKey < b.secondaryKey) ? -1 : (a.secondaryKey > b.secondaryKey) ? 1 : IndexObject.compare(a, b));
   }
 
-  static compareBuffer(a: IndexObject<Uint8Array>, b: IndexObject<Uint8Array>) {
+  static compareBuffer(a: IndexObject<Buffer>, b: IndexObject<Buffer>) {
     return IndexObject.compareTable(a, b) ||
-      compareUint8Array(a.secondaryKey, b.secondaryKey) || IndexObject.compare(a, b);
+      Buffer.compare(a.secondaryKey, b.secondaryKey) || IndexObject.compare(a, b);
   }
 
   clone(): IndexObject<K> {
@@ -317,13 +314,11 @@ export class Index128 extends SecondaryKeyStore<bigint> {
   }
 }
 
-export class Index256 extends SecondaryKeyStore<Uint8Array> {
+export class Index256 extends SecondaryKeyStore<Buffer> {
   constructor() {
     super(IndexObject.compare, IndexObject.compareBuffer);
-    this.secondary.lowest = new Uint8Array(32);
-    this.secondary.lowest.fill(0);
-    this.secondary.highest = new Uint8Array(32);
-    this.secondary.highest.fill(255);
+    this.secondary.lowest = Buffer.alloc(32, 0);
+    this.secondary.highest = Buffer.alloc(32, 255);
   }
 }
 
@@ -381,7 +376,7 @@ class DeleteSecondaryKeyChange implements StoreChange {
   }
 }
 
-export class TableStore extends Store<Uint8Array,KeyValueObject> {
+export class TableStore extends Store<Buffer,KeyValueObject> {
   idx64 = new Index64();
   idx128 = new Index128();
   idx256 = new Index256();
