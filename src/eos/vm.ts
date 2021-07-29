@@ -71,6 +71,13 @@ const SecondaryKeyConverter = {
   */
 };
 
+class EosioExitResult extends Error {
+  constructor(value: number) {
+    super('eosio_exit: ' + value.toString());
+    Object.setPrototypeOf(this, EosioExitResult);
+  }
+}
+
 class EosVMContext {
   receiver: bigint;
   first_receiver?: bigint;
@@ -905,8 +912,8 @@ export class EosVM extends Vert {
       },
       eosio_exit: (code: i32): void => {
         log.debug('eosio_exit');
-        // TODO
-        throw new Error('not implemented');
+        // HACK: throw error to stop wasm execution forcibly
+        throw new EosioExitResult(code);
       },
       current_time: (): i64 => {
         log.debug('current_time');
@@ -1087,11 +1094,18 @@ export class EosVM extends Vert {
     this.snapshot = this.store.snapshot();
     this.context.receiver = Name.from(receiver).toBigInt();
     this.context.first_receiver = Name.from(first_receiver).toBigInt();
-    (this.instance.exports.apply as CallableFunction)(
-      this.context.receiver,
-      this.context.first_receiver,
-      Name.from(action).toBigInt());
-    this.finalize();
+    try {
+      (this.instance.exports.apply as CallableFunction)(
+        this.context.receiver,
+        this.context.first_receiver,
+        Name.from(action).toBigInt());
+    } catch (e) {
+      if (!(e instanceof EosioExitResult)) {
+        this.revert();
+      }
+    } finally {
+      this.finalize();
+    }
   }
 
   revert() {
