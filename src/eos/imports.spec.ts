@@ -2,7 +2,6 @@ import { expect } from 'chai';
 import { EosVM } from './vm';
 import { Memory } from '../memory';
 import { Name } from './types';
-import { hexToUint8Array, compareUint8Array } from '../util';
 
 let vm;
 let memory;
@@ -17,21 +16,21 @@ beforeEach(() => {
 describe('eos-vm imports', () => {
   describe('crypto', () => {
     it('recover_key', () => {
-      const buffer = new Uint8Array(memory.buffer);
-      const digest = hexToUint8Array('cacc5e5fdb065cb9929e57766ac740c4d21b72448b1d5d9f405e25be91857c7a');
-      const signature = hexToUint8Array('00204AECCC5FB93E32C68CF4041D42CF5E18365FD4C54B5B6917418D2C99046236F61838A60E65C744162A3B2597965945E53E637FEC091CEA680153E78D004230FC');
-      const publicKey = hexToUint8Array('0003DD4BD191F57FC1A5235EEC881A08C31A2FBCE198F250CDEAE98A7218D37C0C2B');
+      const buffer = Buffer.from(memory.buffer);
+      const digest = Buffer.from('cacc5e5fdb065cb9929e57766ac740c4d21b72448b1d5d9f405e25be91857c7a', 'hex');
+      const signature = Buffer.from('00204AECCC5FB93E32C68CF4041D42CF5E18365FD4C54B5B6917418D2C99046236F61838A60E65C744162A3B2597965945E53E637FEC091CEA680153E78D004230FC', 'hex');
+      const publicKey = Buffer.from('0003DD4BD191F57FC1A5235EEC881A08C31A2FBCE198F250CDEAE98A7218D37C0C2B', 'hex');
       buffer.set(digest, 0);
       buffer.set(signature, 32);
       vm.imports.env.recover_key(0, 32, 66, 98, 34);
-      expect(compareUint8Array(buffer.slice(98, 132), publicKey)).to.equal(0);
+      expect(Buffer.compare(buffer.slice(98, 132), publicKey)).to.equal(0);
     });
 
     it('assert_recover_key', () => {
-      const buffer = new Uint8Array(memory.buffer);
-      const digest = hexToUint8Array('cacc5e5fdb065cb9929e57766ac740c4d21b72448b1d5d9f405e25be91857c7a');
-      const signature = hexToUint8Array('00204AECCC5FB93E32C68CF4041D42CF5E18365FD4C54B5B6917418D2C99046236F61838A60E65C744162A3B2597965945E53E637FEC091CEA680153E78D004230FC');
-      const publicKey = hexToUint8Array('0003DD4BD191F57FC1A5235EEC881A08C31A2FBCE198F250CDEAE98A7218D37C0C2B');
+      const buffer = Buffer.from(memory.buffer);
+      const digest = Buffer.from('cacc5e5fdb065cb9929e57766ac740c4d21b72448b1d5d9f405e25be91857c7a', 'hex');
+      const signature = Buffer.from('00204AECCC5FB93E32C68CF4041D42CF5E18365FD4C54B5B6917418D2C99046236F61838A60E65C744162A3B2597965945E53E637FEC091CEA680153E78D004230FC', 'hex');
+      const publicKey = Buffer.from('0003DD4BD191F57FC1A5235EEC881A08C31A2FBCE198F250CDEAE98A7218D37C0C2B', 'hex');
       buffer.set(digest, 0);
       buffer.set(signature, 32);
       buffer.set(publicKey, 98);
@@ -41,15 +40,15 @@ describe('eos-vm imports', () => {
 
   describe('print', () => {
     it('prints', () => {
-      const buffer = new Uint8Array(memory.buffer);
-      buffer.set([104, 101, 108, 108, 111, 0]);
+      const buffer = Buffer.from(memory.buffer);
+      buffer.set(Buffer.from([104, 101, 108, 108, 111, 0]));
       vm.imports.env.prints(0);
       expect(vm.console).to.equal('hello');
     });
 
     it('prints_l', () => {
-      const buffer = new Uint8Array(memory.buffer);
-      buffer.set([104, 101, 108, 108, 111, 0]);
+      const buffer = Buffer.from(memory.buffer);
+      buffer.set(Buffer.from([104, 101, 108, 108, 111, 0]));
       vm.imports.env.prints_l(0, 4);
       expect(vm.console).to.equal('hell');
     });
@@ -69,29 +68,29 @@ describe('eos-vm imports', () => {
     });
 
     it('printi128', () => {
-      const buffer = new DataView(memory.buffer);
+      const buffer = Buffer.from(memory.buffer);
 
-      buffer.setBigInt64(0, -1n, true);
-      buffer.setBigInt64(8, -1n, true);
+      buffer.writeBigInt64LE(-1n);
+      buffer.writeBigInt64LE(-1n, 8);
       vm.imports.env.printi128(0);
       expect(vm.console).to.equal('-1');
 
-      buffer.setBigUint64(0, 0n, true);
-      buffer.setBigUint64(8, 1n << 63n, true);
+      buffer.writeBigUInt64LE(0n);
+      buffer.writeBigUInt64LE(1n << 63n, 8);
       vm.imports.env.printi128(0);
       expect(vm.console).to.equal('-170141183460469231731687303715884105728');
     });
 
     it('printui128', () => {
-      const buffer = new DataView(memory.buffer);
+      const buffer = Buffer.from(memory.buffer);
 
-      buffer.setBigInt64(0, -1n, true);
-      buffer.setBigInt64(8, -1n, true);
+      buffer.writeBigInt64LE(-1n);
+      buffer.writeBigInt64LE(-1n, 8);
       vm.imports.env.printui128(0);
       expect(vm.console).to.equal('340282366920938463463374607431768211455');
 
-      buffer.setBigUint64(0, 0n, true);
-      buffer.setBigUint64(8, 1n << 63n, true);
+      buffer.writeBigUInt64LE(0n);
+      buffer.writeBigUInt64LE(1n << 63n, 8);
       vm.imports.env.printui128(0);
       expect(vm.console).to.equal('170141183460469231731687303715884105728');
     });
@@ -119,7 +118,7 @@ describe('eos-vm imports', () => {
     });
 
     it('printhex', () => {
-      const buffer = new Uint8Array(memory.buffer);
+      const buffer = Buffer.from(memory.buffer);
       buffer.set([161, 178, 195, 212, 0, 1, 255, 254]);
       vm.imports.env.printhex(0, 8);
       expect(vm.console).to.equal('a1b2c3d40001fffe');
@@ -128,10 +127,10 @@ describe('eos-vm imports', () => {
 
   describe('builtins', () => {
     it('memcpy', () => {
-      const buffer = new Uint8Array(memory.buffer, 0, 6);
+      const buffer = Buffer.from(memory.buffer, 0, 6);
       buffer.set([1, 2, 3, 4, 5, 6]);
       vm.imports.env.memcpy(2, 0, 4);
-      expect(compareUint8Array(buffer, new Uint8Array([1, 2, 1, 2, 1, 2]))).to.equal(0);
+      expect(Buffer.compare(buffer, Buffer.from([1, 2, 1, 2, 1, 2]))).to.equal(0);
     });
   });
 });

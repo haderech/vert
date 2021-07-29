@@ -1,5 +1,5 @@
 export class Memory {
-  static create(initial: number) {
+  static create(initial: number): Memory {
     return new Memory(new WebAssembly.Memory({ initial: initial }));
   }
 
@@ -19,17 +19,17 @@ export class Memory {
         }
       }
     }
-    return new TextDecoder().decode(new Uint8Array(this.memory.buffer, offset, length));
+    return Buffer.from(this.memory.buffer, offset, length).toString();
   }
 
   readUInt64(offset: number): bigint {
-    return new DataView(this.memory.buffer, offset, 8).getBigUint64(0, true);
+    return Buffer.from(this.memory.buffer, offset, 8).readBigUInt64LE();
   }
 
   readUInt128(offset: number): bigint {
-    const buffer = new DataView(this.memory.buffer, offset, 16);
-    const low = buffer.getBigUint64(0, true);
-    const high = buffer.getBigUint64(8, true);
+    const buffer = Buffer.from(this.memory.buffer, offset, 16);
+    const low = buffer.readBigUInt64LE(0);
+    const high = buffer.readBigUInt64LE(8);
     return (high << 64n) | low;
   }
 
@@ -38,10 +38,10 @@ export class Memory {
   }
 
   readHex(offset: number, length: number): string {
-    return [...new Uint8Array(this.memory.buffer, offset, length)].map(v => v.toString(16).padStart(2, '0')).join('');
+    return Buffer.from(this.memory.buffer, offset, length).toString('hex');
   }
 
   writeUInt64(offset: number, value: bigint): void {
-    return new DataView(this.memory.buffer, offset, 8).setBigUint64(0, value, true);
+    Buffer.from(this.memory.buffer, offset, 8).writeBigUInt64LE(value);
   }
 }
