@@ -1,7 +1,7 @@
 import { Store, PrefixedStore, StoreChange, CreateItemChange, DeleteItemChange } from "../store";
 import BTree from 'sorted-btree';
 import { log } from '../vert';
-import { compareUint8Array, concatUint8Array, uint8ArrayToDataView } from "../util";
+import { Uint8ArrayCompare, Uint8ArrayConcat, DataViewFromUint8Array } from "../util";
 
 export class KeyValueObject {
   id: number;
@@ -51,7 +51,7 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
 
   static serializePrefix(code: bigint, scope: bigint, table: bigint): Uint8Array {
     const buffer = new Uint8Array(24);
-    const view = uint8ArrayToDataView(buffer);
+    const view = DataViewFromUint8Array(buffer);
     view.setBigUint64(0, code, true);
     view.setBigUint64(8, scope, true);
     view.setBigUint64(16, table, true);
@@ -60,7 +60,7 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
 
   static bigintToBuffer(v: bigint): Uint8Array {
     const buffer = new Uint8Array(8);
-    uint8ArrayToDataView(buffer).setBigUint64(0, v);
+    DataViewFromUint8Array(buffer).setBigUint64(0, v);
     return buffer;
   }
 
@@ -104,7 +104,7 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
   }
 
   key(key: bigint): Uint8Array {
-    return concatUint8Array([this.prefix(), Table.bigintToBuffer(key)]);
+    return Uint8ArrayConcat([this.prefix(), Table.bigintToBuffer(key)]);
   }
 
   lowestKey(): bigint {
@@ -173,7 +173,7 @@ export class IndexObject<K> implements IndexKey<K> {
 
   static compareBuffer(a: IndexObject<Uint8Array>, b: IndexObject<Uint8Array>) {
     return IndexObject.compareTable(a, b) ||
-      compareUint8Array(a.secondaryKey, b.secondaryKey) || IndexObject.compare(a, b);
+      Uint8ArrayCompare(a.secondaryKey, b.secondaryKey) || IndexObject.compare(a, b);
   }
 
   clone(): IndexObject<K> {
