@@ -15,6 +15,42 @@ beforeEach(() => {
 
 describe('eos-vm imports', () => {
   describe('crypto', () => {
+    it('assert_sha256', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const preimage = Buffer.from('vert');
+      const digest = Buffer.from('6a103aecbd239f79ce183fc33649b71783a61711afb291524c97af442deb33a5', 'hex');
+      buffer.set(preimage, 0);
+      buffer.set(digest, 4);
+      vm.imports.env.assert_sha256(0, 4, 4);
+    });
+
+    it('assert_sha1', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const preimage = Buffer.from('vert');
+      const digest = Buffer.from('a0d6b8b8b6ff239253dbc1af10337dabd12f2236', 'hex');
+      buffer.set(preimage, 0);
+      buffer.set(digest, 4);
+      vm.imports.env.assert_sha1(0, 4, 4);
+    });
+
+    it('assert_sha512', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const preimage = Buffer.from('vert');
+      const digest = Buffer.from('1841ac5b16fe341194f6dd18ad361025c88547320bef8080847e4db5042270e40f07b3666b5cf5e75d2830523d7d96aae574b2511f4de7ee2e89698cf4bb701e', 'hex');
+      buffer.set(preimage, 0);
+      buffer.set(digest, 4);
+      vm.imports.env.assert_sha512(0, 4, 4);
+    });
+
+    it('assert_ripemd160', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const preimage = Buffer.from('vert');
+      const digest = Buffer.from('a59355085d66e2a954081e9892980b8b61bf25c1', 'hex');
+      buffer.set(preimage, 0);
+      buffer.set(digest, 4);
+      vm.imports.env.assert_ripemd160(0, 4, 4);
+    });
+
     it('recover_key', () => {
       const buffer = Buffer.from(memory.buffer);
       const digest = Buffer.from('cacc5e5fdb065cb9929e57766ac740c4d21b72448b1d5d9f405e25be91857c7a', 'hex');

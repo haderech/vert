@@ -4,7 +4,11 @@ import { log, Vert } from '../vert';
 import { Name } from "./types";
 import { Table, KeyValueObject, IndexObject, SecondaryKeyStore, TableStore, tableStore } from './table';
 import { IteratorCache } from "./iterator-cache";
-import crypto from 'crypto';
+
+import sha1 from '@conr2d/bcrypto/lib/sha1';
+import sha256 from '@conr2d/bcrypto/lib/sha256';
+import sha512 from '@conr2d/bcrypto/lib/sha512';
+import ripemd160 from '@conr2d/bcrypto/lib/ripemd160';
 import secp256k1 from '@conr2d/bcrypto/lib/secp256k1';
 
 type ptr = number;
@@ -339,67 +343,47 @@ export class EosVM extends Vert {
       // crypto
       assert_sha256: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('assert_sha256');
-        const result = crypto.createHash('sha256').update(Buffer.from(this.memory.buffer, data, len)).digest();
+        const result = sha256.digest(Buffer.from(this.memory.buffer, data, len));
         if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 32))) {
           throw new Error('hash mismatch');
         }
       },
       assert_sha1: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('assert_sha1');
-        const result = crypto.createHash('sha1').update(Buffer.from(this.memory.buffer, data, len)).digest();
+        const result = sha1.digest(Buffer.from(this.memory.buffer, data, len));
         if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 20))) {
           throw new Error('hash mismatch');
         }
       },
       assert_sha512: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('assert_sha512');
-        const result = crypto.createHash('sha512').update(Buffer.from(this.memory.buffer, data, len)).digest();
+        const result = sha512.digest(Buffer.from(this.memory.buffer, data, len));
         if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 64))) {
           throw new Error('hash mismatch');
         }
       },
       assert_ripemd160: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('assert_ripemd160');
-        const result = crypto.createHash('ripemd160').update(Buffer.from(this.memory.buffer, data, len)).digest();
+        const result = ripemd160.digest(Buffer.from(this.memory.buffer, data, len));
         if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 20))) {
           throw new Error('hash mismatch');
         }
       },
       sha256: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('sha256');
-        Buffer.from(this.memory.buffer, hash, 32).set(
-          crypto
-            .createHash('sha256')
-            .update(Buffer.from(this.memory.buffer, data, len))
-            .digest()
-        );
+        Buffer.from(this.memory.buffer, hash, 32).set(sha256.digest(Buffer.from(this.memory.buffer, data, len)));
       },
       sha1: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('sha1');
-        Buffer.from(this.memory.buffer, hash, 20).set(
-          crypto
-            .createHash('sha1')
-            .update(Buffer.from(this.memory.buffer, data, len))
-            .digest()
-        );
+        Buffer.from(this.memory.buffer, hash, 20).set(sha1.digest(Buffer.from(this.memory.buffer, data, len)));
       },
       sha512: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('sha512');
-        Buffer.from(this.memory.buffer, hash, 64).set(
-          crypto
-            .createHash('sha512')
-            .update(Buffer.from(this.memory.buffer, data, len))
-            .digest()
-        );
+        Buffer.from(this.memory.buffer, hash, 64).set(sha512.digest(Buffer.from(this.memory.buffer, data, len)));
       },
       ripemd160: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('ripemd160');
-        Buffer.from(this.memory.buffer, hash, 20).set(
-          crypto
-            .createHash('ripemd160')
-            .update(Buffer.from(this.memory.buffer, data, len))
-            .digest()
-        );
+        Buffer.from(this.memory.buffer, hash, 20).set(ripemd160.digest(Buffer.from(this.memory.buffer, data, len)));
       },
       recover_key: (digest: ptr, sig: ptr, siglen: i32, pub: ptr, publen: i32): i32 => {
         log.debug('recover_key');
