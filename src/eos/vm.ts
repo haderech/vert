@@ -53,7 +53,7 @@ const SecondaryKeyConverter = {
     },
     to: (buffer: Buffer, value: Buffer) => {
       const low = (value as Uint8Array).slice(0, 16);
-      const high = (buffer as Uint8Array).slice(16, 32);
+      const high = (value as Uint8Array).slice(16, 32);
       buffer.set(Buffer.concat([low.reverse(), high.reverse()]));
     },
   },
