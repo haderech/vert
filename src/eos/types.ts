@@ -6,13 +6,13 @@ import {
   UInt64 as GmUInt64,
   Int64 as GmInt64
 } from "@greymass/eosio";
-import { DataViewFromUint8Array } from "../util";
+import { uint8ArrayToDataView } from "../util";
 
 class Name extends GmName {
   static from(value: NameType | bigint): Name {
     if (typeof value === 'bigint') {
       const buffer = new Uint8Array(8);
-      const view = DataViewFromUint8Array(buffer);
+      const view = uint8ArrayToDataView(buffer);
       view.setBigUint64(0, value, true);
       value = GmUInt64.from(buffer);
     }
@@ -20,7 +20,7 @@ class Name extends GmName {
   }
   toBigInt(): bigint {
     const buffer = this.value.value.toArrayLike(Uint8Array, 'le', 8);
-    return DataViewFromUint8Array(buffer).getBigUint64(0, true);
+    return uint8ArrayToDataView(buffer).getBigUint64(0, true);
   }
 }
 
@@ -28,7 +28,7 @@ class SymbolCode extends Asset.SymbolCode {
   static from(value: Asset.SymbolCodeType | bigint): SymbolCode {
     if (typeof value === 'bigint') {
       const buffer = new Uint8Array(8);
-      const view = DataViewFromUint8Array(buffer);
+      const view = uint8ArrayToDataView(buffer);
       view.setBigUint64(0, value, true);
       value = GmUInt64.from(buffer);
     }
@@ -36,7 +36,7 @@ class SymbolCode extends Asset.SymbolCode {
   }
   toBigInt(): bigint {
     const buffer = this.value.value.toArrayLike(Uint8Array, 'le', 8);
-    return DataViewFromUint8Array(buffer).getBigUint64(0, true);
+    return uint8ArrayToDataView(buffer).getBigUint64(0, true);
   }
 }
 
@@ -46,7 +46,7 @@ class UInt64 extends GmUInt64 {
   static from(value: IntType | Uint8Array | bigint): UInt64 {
     if (typeof value === 'bigint') {
       const buffer = new Uint8Array(8);
-      const view = DataViewFromUint8Array(buffer);
+      const view = uint8ArrayToDataView(buffer);
       view.setBigUint64(0, value, true);
       value = GmUInt64.from(buffer).value;
     }
@@ -54,7 +54,7 @@ class UInt64 extends GmUInt64 {
   }
   toBigInt(): bigint {
     const buffer = this.value.value.toArrayLike(Uint8Array, 'le', 8);
-    return DataViewFromUint8Array(buffer).getBigUint64(0, true);
+    return uint8ArrayToDataView(buffer).getBigUint64(0, true);
   }
 }
 
@@ -62,7 +62,7 @@ class Int64 extends GmInt64 {
   static from(value: IntType | Uint8Array | bigint): Int64 {
     if (typeof value === 'bigint') {
       const buffer = new Uint8Array(8);
-      const view = DataViewFromUint8Array(buffer);
+      const view = uint8ArrayToDataView(buffer);
       view.setBigInt64(0, value, true);
       value = GmInt64.from(buffer).value;
     }
@@ -70,7 +70,7 @@ class Int64 extends GmInt64 {
   }
   toBigInt(): bigint {
     const buffer = this.value.value.toArrayLike(Uint8Array, 'le', 8);
-    return DataViewFromUint8Array(buffer).getBigInt64(0, true);
+    return uint8ArrayToDataView(buffer).getBigInt64(0, true);
   }
 }
 
