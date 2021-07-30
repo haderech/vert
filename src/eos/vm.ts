@@ -1,5 +1,4 @@
 import assert from 'assert';
-import { ABI, Serializer } from '@greymass/eosio';
 import { log, Vert } from '../vert';
 import { Name } from "./types";
 import { Table, KeyValueObject, IndexObject, SecondaryKeyStore, TableStore, TableView } from './table';
@@ -66,17 +65,9 @@ class EosioExitResult extends Error {
   }
 }
 
-class EosVMContext {
-  receiver: bigint;
-  first_receiver?: bigint;
-  timestamp: bigint;
-  data?: Uint8Array;
-  console: string = '';
-}
-
-export class EosVM extends Vert {
+export class VM extends Vert {
   // TODO
-  private context: EosVMContext = new EosVMContext();
+  private context: VM.Context = new VM.Context();
   private kvCache = new IteratorCache<KeyValueObject>();
   private idx64 = new IteratorCache<IndexObject<bigint>>();
   private idx128 = new IteratorCache<IndexObject<bigint>>();
@@ -84,9 +75,8 @@ export class EosVM extends Vert {
   private idxDouble = new IteratorCache<IndexObject<number>>();
   // private idxLongDouble;
   private snapshot: number = 0;
-  private abi: any;
 
-  constructor(bytes: Uint8Array, private store: TableStore = new TableStore()) {
+  constructor(bytes: Uint8Array, public store: TableStore = new TableStore()) {
     super(bytes);
   }
 
@@ -1072,47 +1062,14 @@ export class EosVM extends Vert {
     return str;
   }
 
-  setAbi(abi: any) {
-    this.abi = ABI.from(abi);
-    this.abi.actions.forEach((action) => {
-      const resolved = this.abi.resolveType(action.name);
-      Object.assign(this, {
-        [resolved.name]: (...args: any[]) => {
-          const data: Record<string, any> = {};
-          args.forEach((arg, i) => data[resolved.fields[i].name] = arg);
-          this.context.data = Serializer.encode({
-            abi: this.abi,
-            type: action.name,
-            object: data,
-          }).array;
-        }
-      });
-    });
-    // XXX: if table whose name is same to that of action exists,
-    // accessor will be overwritten.
-    this.abi.tables.forEach((table) => {
-      const resolved = this.abi.resolveType(table.name);
-      Object.assign(this, {
-        [resolved.name]: (scope: bigint): TableView | undefined => {
-          const tab = this.store.findTable(this.context.receiver, scope, Name.from(resolved.name).toBigInt());
-          if (tab) {
-            return new TableView(tab, this.abi);
-          }
-          return;
-        },
-      });
-    });
-  }
-
-  apply(receiver: string, first_receiver: string, action: string) {
+  apply(context: VM.Context) {
     this.snapshot = this.store.snapshot();
-    this.context.receiver = Name.from(receiver).toBigInt();
-    this.context.first_receiver = Name.from(first_receiver).toBigInt();
+    this.context = context;
     try {
       (this.instance.exports.apply as CallableFunction)(
         this.context.receiver,
         this.context.first_receiver,
-        Name.from(action).toBigInt());
+        this.context.action);
     } catch (e) {
       if (!(e instanceof EosioExitResult)) {
         this.revert();
@@ -1136,5 +1093,20 @@ export class EosVM extends Vert {
     this.idx128 = new IteratorCache<IndexObject<bigint>>();
     this.idx256 = new IteratorCache<IndexObject<Buffer>>();
     this.idxDouble = new IteratorCache<IndexObject<number>>();
+  }
+}
+
+export namespace VM {
+  export class Context {
+    receiver: bigint;
+    first_receiver: bigint;
+    action: bigint;
+    data: Uint8Array;
+    timestamp: bigint = 0n;
+    console: string = '';
+
+    constructor(init?: Partial<Context>) {
+      Object.assign(this, init);
+    }
   }
 }

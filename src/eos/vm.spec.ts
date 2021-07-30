@@ -1,172 +1,172 @@
-import fs from 'fs';
 import { expect } from 'chai';
-import { EosVM } from './vm';
-import { Name, SymbolCode } from './types';
-import { Dispatcher } from '../vert';
-import { Serializer } from '@greymass/eosio';
-import { TableStore } from './table';
+import { VM } from './vm';
+import { Memory } from '../memory';
+import { Name } from './types';
 
-const wasm = fs.readFileSync('contracts/eosio.token/eosio.token.wasm');
-const abi = JSON.parse(fs.readFileSync('contracts/eosio.token/eosio.token.abi', 'utf8'));
+let vm;
+let memory;
 
-let vm: Dispatcher;
-
-function currency_stats(supply: string, max_supply: string, issuer: string) {
-  return Serializer.decode({
-    abi: vm.abi,
-    type: 'currency_stats',
-    object: {
-      supply, max_supply, issuer,
-    }
-  });
-}
-
-function account(balance: string) {
-  return Serializer.decode({
-    abi: vm.abi,
-    type: 'account',
-    object: {
-      balance,
-    }
-  });
-}
-
-before(async () => {
-  vm = new EosVM(wasm);
-  await vm.ready;
-  vm.setAbi(abi);
+beforeEach(() => {
+  vm = new VM(new Uint8Array());
+  memory = Memory.create(256);
+  // @ts-ignore
+  vm._memory = memory;
 });
 
-afterEach(() => {
-  vm.store = new TableStore();
-});
-
-describe('eos-vm', () => {
-  describe('eosio.token', () => {
-    it('create', () => {
-      vm.create('alice', '1000.000 TKN');
-      vm.apply('eosio.token', 'eosio.token', 'create');
-      const stat = currency_stats('0.000 TKN', '1000.000 TKN', 'alice');
-      const symcode = SymbolCode.from('TKN').toBigInt();
-      expect(JSON.stringify(vm.stat(symcode).get(symcode))).to.equal(JSON.stringify(stat));
+describe('eos-vm imports', () => {
+  describe('crypto', () => {
+    it('assert_sha256', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const preimage = Buffer.from('vert');
+      const digest = Buffer.from('6a103aecbd239f79ce183fc33649b71783a61711afb291524c97af442deb33a5', 'hex');
+      buffer.set(preimage, 0);
+      buffer.set(digest, 4);
+      vm.imports.env.assert_sha256(0, 4, 4);
     });
 
-    it('create: negative_max_supply', () => {
-      try {
-        vm.create('alice', '-1000.000 TKN');
-        vm.apply('eosio.token', 'eosio.token', 'create');
-      } catch (e) {
-        expect(e.message).to.equal('eosio_assert: max-supply must be positive');
-      }
+    it('assert_sha1', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const preimage = Buffer.from('vert');
+      const digest = Buffer.from('a0d6b8b8b6ff239253dbc1af10337dabd12f2236', 'hex');
+      buffer.set(preimage, 0);
+      buffer.set(digest, 4);
+      vm.imports.env.assert_sha1(0, 4, 4);
     });
 
-    it('create: symbol_already_exists', () => {
-      vm.create('alice', '100 TKN');
-      vm.apply('eosio.token', 'eosio.token', 'create');
-      try {
-        vm.create('alice', '100 TKN');
-        vm.apply('eosio.token', 'eosio.token', 'create');
-      } catch (e) {
-        expect(e.message).to.equal('eosio_assert: token with symbol already exists');
-      }
+    it('assert_sha512', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const preimage = Buffer.from('vert');
+      const digest = Buffer.from('1841ac5b16fe341194f6dd18ad361025c88547320bef8080847e4db5042270e40f07b3666b5cf5e75d2830523d7d96aae574b2511f4de7ee2e89698cf4bb701e', 'hex');
+      buffer.set(preimage, 0);
+      buffer.set(digest, 4);
+      vm.imports.env.assert_sha512(0, 4, 4);
     });
 
-    it('create: max_supply', () => {
-      vm.create('alice', '4611686018427387903 TKN');
-      vm.apply('eosio.token', 'eosio.token', 'create');
-      const stat = currency_stats('0 TKN', '4611686018427387903 TKN', 'alice');
-      const symcode = SymbolCode.from('TKN').toBigInt();
-      expect(JSON.stringify(vm.stat(symcode).get(symcode))).to.equal(JSON.stringify(stat));
-
-      try {
-        vm.create('alice', '4611686018427387904 NKT');
-        vm.apply('eosio.token', 'eosio.token', 'create');
-      } catch (e) {
-        expect(e.message).to.equal('eosio_assert: invalid supply');
-      }
+    it('assert_ripemd160', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const preimage = Buffer.from('vert');
+      const digest = Buffer.from('a59355085d66e2a954081e9892980b8b61bf25c1', 'hex');
+      buffer.set(preimage, 0);
+      buffer.set(digest, 4);
+      vm.imports.env.assert_ripemd160(0, 4, 4);
     });
 
-    it('create: max_decimals', () => {
-      vm.create('alice', '1.000000000000000000 TKN');
-      vm.apply('eosio.token', 'eosio.token', 'create');
-      const stat = currency_stats('0.000000000000000000 TKN', '1.000000000000000000 TKN', 'alice');
-      const symcode = SymbolCode.from('TKN').toBigInt();
-      expect(JSON.stringify(vm.stat(symcode).get(symcode))).to.equal(JSON.stringify(stat));
-
-      try {
-        vm.create('alice', '1.0000000000000000000 NKT');
-        vm.apply('eosio.token', 'eosio.token', 'create');
-      } catch (e) {
-        expect(e.message).to.equal('Encoding error at root<create>.maximum_supply<asset>: Invalid asset symbol, precision too large');
-      }
+    it('recover_key', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const digest = Buffer.from('cacc5e5fdb065cb9929e57766ac740c4d21b72448b1d5d9f405e25be91857c7a', 'hex');
+      const signature = Buffer.from('00204AECCC5FB93E32C68CF4041D42CF5E18365FD4C54B5B6917418D2C99046236F61838A60E65C744162A3B2597965945E53E637FEC091CEA680153E78D004230FC', 'hex');
+      const publicKey = Buffer.from('0003DD4BD191F57FC1A5235EEC881A08C31A2FBCE198F250CDEAE98A7218D37C0C2B', 'hex');
+      buffer.set(digest, 0);
+      buffer.set(signature, 32);
+      vm.imports.env.recover_key(0, 32, 66, 98, 34);
+      expect(Buffer.compare(buffer.slice(98, 132), publicKey)).to.equal(0);
     });
 
-    it('issue', () => {
-      vm.create('alice', '1000.000 TKN');
-      vm.apply('eosio.token', 'eosio.token', 'create');
+    it('assert_recover_key', () => {
+      const buffer = Buffer.from(memory.buffer);
+      const digest = Buffer.from('cacc5e5fdb065cb9929e57766ac740c4d21b72448b1d5d9f405e25be91857c7a', 'hex');
+      const signature = Buffer.from('00204AECCC5FB93E32C68CF4041D42CF5E18365FD4C54B5B6917418D2C99046236F61838A60E65C744162A3B2597965945E53E637FEC091CEA680153E78D004230FC', 'hex');
+      const publicKey = Buffer.from('0003DD4BD191F57FC1A5235EEC881A08C31A2FBCE198F250CDEAE98A7218D37C0C2B', 'hex');
+      buffer.set(digest, 0);
+      buffer.set(signature, 32);
+      buffer.set(publicKey, 98);
+      vm.imports.env.assert_recover_key(0, 32, 66, 98, 34); // this throws an error when failed
+    });
+  });
 
-      vm.issue('alice', '500.000 TKN', 'hola');
-      vm.apply('eosio.token', 'eosio.token', 'issue');
-      let stat = currency_stats('500.000 TKN', '1000.000 TKN', 'alice');
-      const symcode = SymbolCode.from('TKN').toBigInt();
-      expect(JSON.stringify(vm.stat(symcode).get(symcode))).to.equal(JSON.stringify(stat));
-      let balance = account('500.000 TKN');
-      expect(JSON.stringify(vm.accounts(Name.from('alice').toBigInt()).get(symcode)))
-        .to.equal(JSON.stringify(balance));
-
-      try {
-        vm.issue('alice', '500.001 TKN', 'hola');
-        vm.apply('eosio.token', 'eosio.token', 'issue');
-      } catch (e) {
-        expect(e.message).to.equal('eosio_assert: quantity exceeds available supply');
-      }
-
-      try {
-        vm.issue('alice', '-1.000 TKN', 'hola');
-        vm.apply('eosio.token', 'eosio.token', 'issue');
-      } catch (e) {
-        expect(e.message).to.equal('eosio_assert: must issue positive quantity');
-      }
-
-      vm.issue('alice', '1.000 TKN', 'hola');
-      vm.apply('eosio.token', 'eosio.token', 'issue');
+  describe('print', () => {
+    it('prints', () => {
+      const buffer = Buffer.from(memory.buffer);
+      buffer.set(Buffer.from([104, 101, 108, 108, 111, 0]));
+      vm.imports.env.prints(0);
+      expect(vm.console).to.equal('hello');
     });
 
-    it('transfer', () => {
-      vm.create('alice', '1000 CERO');
-      vm.apply('eosio.token', 'eosio.token', 'create');
+    it('prints_l', () => {
+      const buffer = Buffer.from(memory.buffer);
+      buffer.set(Buffer.from([104, 101, 108, 108, 111, 0]));
+      vm.imports.env.prints_l(0, 4);
+      expect(vm.console).to.equal('hell');
+    });
 
-      vm.issue('alice', '1000 CERO', 'hola');
-      vm.apply('eosio.token', 'eosio.token', 'issue');
-      let stat = currency_stats('1000 CERO', '1000 CERO', 'alice');
-      const symcode = SymbolCode.from('CERO').toBigInt();
-      expect(JSON.stringify(vm.stat(symcode).get(symcode))).to.equal(JSON.stringify(stat));
-      let balance = account('1000 CERO');
-      expect(JSON.stringify(vm.accounts(Name.from('alice').toBigInt()).get(symcode)))
-        .to.equal(JSON.stringify(balance));
+    it('printi', () => {
+      vm.imports.env.printi(255n);
+      expect(vm.console).to.equal('255');
+      vm.imports.env.printi(-1n);
+      expect(vm.console).to.equal('-1');
+    });
 
-      vm.transfer('alice', 'bob', '300 CERO', 'hola');
-      vm.apply('eosio.token', 'eosio.token', 'transfer');
-      balance = account('700 CERO');
-      expect(JSON.stringify(vm.accounts(Name.from('alice').toBigInt()).get(symcode)))
-        .to.equal(JSON.stringify(balance));
-      balance = account('300 CERO');
-      expect(JSON.stringify(vm.accounts(Name.from('bob').toBigInt()).get(symcode)))
-        .to.equal(JSON.stringify(balance));
+    it('printui', () => {
+      vm.imports.env.printui(255n);
+      expect(vm.console).to.equal('255');
+      vm.imports.env.printui(-1n);
+      expect(vm.console).to.equal('18446744073709551615');
+    });
 
-      try {
-        vm.transfer('alice', 'bob', '701 CERO', 'hola');
-        vm.apply('eosio.token', 'eosio.token', 'transfer');
-      } catch (e) {
-        expect(e.message).to.equal('eosio_assert: overdrawn balance');
-      }
+    it('printi128', () => {
+      const buffer = Buffer.from(memory.buffer);
 
-      try {
-        vm.transfer('alice', 'bob', '-1000 CERO', 'hola');
-        vm.apply('eosio.token', 'eosio.token', 'transfer');
-      } catch (e) {
-        expect(e.message).to.equal('eosio_assert: must transfer positive quantity');
-      }
+      buffer.writeBigInt64LE(-1n);
+      buffer.writeBigInt64LE(-1n, 8);
+      vm.imports.env.printi128(0);
+      expect(vm.console).to.equal('-1');
+
+      buffer.writeBigUInt64LE(0n);
+      buffer.writeBigUInt64LE(1n << 63n, 8);
+      vm.imports.env.printi128(0);
+      expect(vm.console).to.equal('-170141183460469231731687303715884105728');
+    });
+
+    it('printui128', () => {
+      const buffer = Buffer.from(memory.buffer);
+
+      buffer.writeBigInt64LE(-1n);
+      buffer.writeBigInt64LE(-1n, 8);
+      vm.imports.env.printui128(0);
+      expect(vm.console).to.equal('340282366920938463463374607431768211455');
+
+      buffer.writeBigUInt64LE(0n);
+      buffer.writeBigUInt64LE(1n << 63n, 8);
+      vm.imports.env.printui128(0);
+      expect(vm.console).to.equal('170141183460469231731687303715884105728');
+    });
+
+    it('printsf', () => {
+      vm.imports.env.printsf(1.001);
+      //expect(vm.console).to.equal('1.001000e+00');
+    });
+
+    it('printdf', () => {
+      vm.imports.env.printsf(1.001);
+      //expect(vm.console).to.equal('1.001000000000000e+00');
+    });
+
+    it('printqf', () => {
+      vm.imports.env.printsf(1.001);
+      //expect(vm.console).to.equal('1.000999999999999890e+00');
+    });
+
+    it('printn', () => {
+      vm.imports.env.printn(Name.from('alice').toBigInt());
+      expect(vm.console).to.equal('alice');
+      vm.imports.env.printn(Name.from('.foo..z.k').toBigInt());
+      expect(vm.console).to.equal('.foo..z.k');
+    });
+
+    it('printhex', () => {
+      const buffer = Buffer.from(memory.buffer);
+      buffer.set([161, 178, 195, 212, 0, 1, 255, 254]);
+      vm.imports.env.printhex(0, 8);
+      expect(vm.console).to.equal('a1b2c3d40001fffe');
+    });
+  });
+
+  describe('builtins', () => {
+    it('memcpy', () => {
+      const buffer = Buffer.from(memory.buffer, 0, 6);
+      buffer.set([1, 2, 3, 4, 5, 6]);
+      vm.imports.env.memcpy(2, 0, 4);
+      expect(Buffer.compare(buffer, Buffer.from([1, 2, 1, 2, 1, 2]))).to.equal(0);
     });
   });
 });

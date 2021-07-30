@@ -4,8 +4,6 @@ import { Memory } from './memory';
 export const log = bunyan.createLogger({ name: 'blanc-vm' });
 log.level(process.env.LOG_LEVEL);
 
-export type Dispatcher = Record<string, any>;
-
 export class Vert {
   protected module: WebAssembly.Module;
   protected instance: WebAssembly.Instance;
