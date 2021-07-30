@@ -1,9 +1,9 @@
-import fs from 'fs';
-import { expect } from 'chai';
-import { Contract } from './Contract';
-import { Name, SymbolCode } from './types';
-import { Serializer } from '@greymass/eosio';
-import { TableStore } from './table';
+import fs from "fs";
+import {expect} from "chai";
+import {Contract} from "./contract";
+import {Asset, Name} from "./types";
+import {Serializer} from "@greymass/eosio";
+import {TableStore} from "./table";
 
 let eosioToken;
 
@@ -22,7 +22,7 @@ afterEach(() => {
 describe('eos-vm', () => {
   describe('eosio.token', () => {
     it('create', () => {
-      const symcode = SymbolCode.from('TKN').toBigInt();
+      const symcode = Asset.SymbolCode.from('TKN').toBigInt();
 
       eosioToken.actions.create('alice', '1000.000 TKN').apply();
       expectSameObjects(
@@ -49,7 +49,7 @@ describe('eos-vm', () => {
     });
 
     it('create: max_supply', () => {
-      const symcode = SymbolCode.from('TKN').toBigInt();
+      const symcode = Asset.SymbolCode.from('TKN').toBigInt();
 
       eosioToken.actions.create('alice', '4611686018427387903 TKN').apply();
       expectSameObjects(
@@ -65,7 +65,7 @@ describe('eos-vm', () => {
     });
 
     it('create: max_decimals', () => {
-      const symcode = SymbolCode.from('TKN').toBigInt();
+      const symcode = Asset.SymbolCode.from('TKN').toBigInt();
 
       eosioToken.actions.create('alice', '1.000000000000000000 TKN').apply();
       expectSameObjects(
@@ -81,7 +81,7 @@ describe('eos-vm', () => {
     });
 
     it('issue', () => {
-      const symcode = SymbolCode.from('TKN').toBigInt();
+      const symcode = Asset.SymbolCode.from('TKN').toBigInt();
 
       eosioToken.actions.create('alice', '1000.000 TKN').apply();
 
@@ -112,7 +112,7 @@ describe('eos-vm', () => {
     });
 
     it('transfer', () => {
-      const symcode = SymbolCode.from('CERO').toBigInt();
+      const symcode = Asset.SymbolCode.from('CERO').toBigInt();
 
       eosioToken.actions.create('alice', '1000 CERO').apply();
 

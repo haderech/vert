@@ -1,14 +1,14 @@
-import assert from 'assert';
-import { log, Vert } from '../vert';
-import { Name } from "./types";
-import { Table, KeyValueObject, IndexObject, SecondaryKeyStore, TableStore, TableView } from './table';
-import { IteratorCache } from "./iterator-cache";
+import assert from "assert";
+import {log, Vert} from "../vert";
+import {Name} from "./types";
+import {IndexObject, KeyValueObject, SecondaryKeyStore, Table, TableStore} from "./table";
+import {IteratorCache} from "./iterator-cache";
 
-import sha1 from '@conr2d/bcrypto/lib/sha1';
-import sha256 from '@conr2d/bcrypto/lib/sha256';
-import sha512 from '@conr2d/bcrypto/lib/sha512';
-import ripemd160 from '@conr2d/bcrypto/lib/ripemd160';
-import secp256k1 from '@conr2d/bcrypto/lib/secp256k1';
+import sha1 from "@conr2d/bcrypto/lib/sha1";
+import sha256 from "@conr2d/bcrypto/lib/sha256";
+import sha512 from "@conr2d/bcrypto/lib/sha512";
+import ripemd160 from "@conr2d/bcrypto/lib/ripemd160";
+import secp256k1 from "@conr2d/bcrypto/lib/secp256k1";
 
 type ptr = number;
 type i32 = number;
@@ -65,7 +65,7 @@ class EosioExitResult extends Error {
   }
 }
 
-export class VM extends Vert {
+class VM extends Vert {
   // TODO
   private context: VM.Context = new VM.Context();
   private kvCache = new IteratorCache<KeyValueObject>();
@@ -1096,7 +1096,7 @@ export class VM extends Vert {
   }
 }
 
-export namespace VM {
+namespace VM {
   export class Context {
     receiver: bigint;
     first_receiver: bigint;
@@ -1109,4 +1109,8 @@ export namespace VM {
       Object.assign(this, init);
     }
   }
+}
+
+export {
+  VM,
 }

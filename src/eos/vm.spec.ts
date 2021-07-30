@@ -1,7 +1,7 @@
-import { expect } from 'chai';
-import { VM } from './vm';
-import { Memory } from '../memory';
-import { Name } from './types';
+import {expect} from "chai";
+import {VM} from "./vm";
+import {Memory} from "../memory";
+import {Name} from "./types";
 
 let vm;
 let memory;

@@ -1,12 +1,12 @@
 import assert from "assert";
-import { Table } from "./table";
+import {Table} from "./table";
 
 interface TableEndIterator {
   0: Table;
   1: number;
 }
 
-export class IteratorCache<T> {
+class IteratorCache<T> {
   private tableCache = new Map<number, TableEndIterator>();
   private endIteratorToTable = new Array<Table>();
   private iteratorToObject = new Array<T>();
@@ -86,4 +86,8 @@ export class IteratorCache<T> {
   indexToEndIterator(idx: number) {
     return -(idx + 2);
   }
+}
+
+export {
+  IteratorCache,
 }

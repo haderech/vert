@@ -1,5 +1,5 @@
-import BTree, { defaultComparator as btreeDefaultComparator } from 'sorted-btree';
-import { log } from './vert';
+import BTree, {defaultComparator as btreeDefaultComparator} from "sorted-btree";
+import {log} from "./vert";
 
 function defaultComparator(a: any, b: any) {
   if (Buffer.isBuffer(a) && Buffer.isBuffer(b)) {

@@ -1,10 +1,10 @@
-import bunyan from 'bunyan';
-import { Memory } from './memory';
+import bunyan from "bunyan";
+import {Memory} from "./memory";
 
-export const log = bunyan.createLogger({ name: 'blanc-vm' });
+let log = bunyan.createLogger({ name: 'vert' });
 log.level(process.env.LOG_LEVEL);
 
-export class Vert {
+class Vert {
   protected module: WebAssembly.Module;
   protected instance: WebAssembly.Instance;
   protected _memory: Memory;
@@ -32,4 +32,15 @@ export class Vert {
       });
     });
   }
+}
+
+namespace Vert {
+  function setLogger(logger: any) {
+    log = logger;
+  }
+}
+
+export {
+  Vert,
+  log,
 }

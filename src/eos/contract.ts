@@ -3,7 +3,7 @@ import {TableStore, TableView} from "./table";
 import {Name} from "./types";
 import {ABI, Serializer} from '@greymass/eosio';
 
-export class Action {
+class Action {
   constructor(private vm: VM, private context: VM.Context) {
   }
 
@@ -12,7 +12,7 @@ export class Action {
   }
 }
 
-export class Contract {
+class Contract {
   readonly vm: VM;
   readonly abi: ABI;
   readonly actions: any = {};
@@ -66,4 +66,9 @@ export class Contract {
       });
     });
   }
+}
+
+export {
+  Action,
+  Contract,
 }

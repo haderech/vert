@@ -1,10 +1,10 @@
-import { Store, PrefixedStore, StoreChange, CreateItemChange, DeleteItemChange } from '../store';
+import {CreateItemChange, DeleteItemChange, PrefixedStore, Store, StoreChange} from '../store';
+import {log} from '../vert';
+import {Name} from './types';
 import BTree from 'sorted-btree';
-import { log } from '../vert';
-import { ABI, Serializer } from '@greymass/eosio';
-import { Name } from './types';
+import {ABI, Serializer} from '@greymass/eosio';
 
-export class KeyValueObject {
+class KeyValueObject {
   id: number;
   tableId: number;
   primaryKey: bigint;
@@ -22,7 +22,7 @@ export class KeyValueObject {
   }
 }
 
-export class Table extends PrefixedStore<bigint,KeyValueObject> {
+class Table extends PrefixedStore<bigint,KeyValueObject> {
   private _code: bigint;
   private _scope: bigint;
   private _table: bigint;
@@ -124,7 +124,7 @@ export class Table extends PrefixedStore<bigint,KeyValueObject> {
   }
 }
 
-export class IndexObject<K> implements IndexKey<K> {
+class IndexObject<K> implements IndexKey<K> {
   tableId: number;
   primaryKey: bigint;
   payer: bigint;
@@ -158,16 +158,16 @@ export class IndexObject<K> implements IndexKey<K> {
   }
 }
 
-export interface IndexPrimaryKey {
+interface IndexPrimaryKey {
   tableId: number;
   primaryKey: bigint;
 }
 
-export interface IndexKey<K> extends IndexPrimaryKey {
+interface IndexKey<K> extends IndexPrimaryKey {
   secondaryKey: K;
 }
 
-export class SecondaryKeyStore<K> {
+class SecondaryKeyStore<K> {
   byPrimary: BTree<IndexPrimaryKey,IndexObject<K>>;
   bySecondary: BTree<IndexKey<K>,IndexObject<K>>;
 
@@ -274,7 +274,7 @@ export class SecondaryKeyStore<K> {
   };
 }
 
-export class Index64 extends SecondaryKeyStore<bigint> {
+class Index64 extends SecondaryKeyStore<bigint> {
   constructor(store: TableStore) {
     super(store, IndexObject.compare, IndexObject.comparePrimitives);
     this.secondary.lowest = 0n;
@@ -282,7 +282,7 @@ export class Index64 extends SecondaryKeyStore<bigint> {
   }
 }
 
-export class Index128 extends SecondaryKeyStore<bigint> {
+class Index128 extends SecondaryKeyStore<bigint> {
   constructor(store: TableStore) {
     super(store, IndexObject.compare, IndexObject.comparePrimitives);
     this.secondary.lowest = 0n;
@@ -290,7 +290,7 @@ export class Index128 extends SecondaryKeyStore<bigint> {
   }
 }
 
-export class Index256 extends SecondaryKeyStore<Buffer> {
+class Index256 extends SecondaryKeyStore<Buffer> {
   constructor(store: TableStore) {
     super(store, IndexObject.compare, IndexObject.compareBuffer);
     this.secondary.lowest = Buffer.alloc(32, 0);
@@ -298,7 +298,7 @@ export class Index256 extends SecondaryKeyStore<Buffer> {
   }
 }
 
-export class IndexDouble extends SecondaryKeyStore<number> {
+class IndexDouble extends SecondaryKeyStore<number> {
   constructor(store: TableStore) {
     super(store, IndexObject.compare, IndexObject.comparePrimitives);
     this.secondary.lowest = 0;
@@ -352,7 +352,7 @@ class DeleteSecondaryKeyChange implements StoreChange {
   }
 }
 
-export class TableStore extends Store<Buffer,KeyValueObject> {
+class TableStore extends Store<Buffer,KeyValueObject> {
   idx64 = new Index64(this);
   idx128 = new Index128(this);
   idx256 = new Index256(this);
@@ -380,7 +380,7 @@ export class TableStore extends Store<Buffer,KeyValueObject> {
   }
 }
 
-export class TableView {
+class TableView {
   readonly name: string;
 
   constructor(private tab: Table, private abi: ABI | undefined = undefined) {
@@ -404,4 +404,13 @@ export class TableView {
     }
     return;
   }
+}
+
+export {
+  Table,
+  KeyValueObject,
+  IndexObject,
+  SecondaryKeyStore,
+  TableStore,
+  TableView,
 }
