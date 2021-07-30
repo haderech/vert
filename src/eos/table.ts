@@ -1,6 +1,8 @@
-import { Store, PrefixedStore, StoreChange, CreateItemChange, DeleteItemChange } from "../store";
+import { Store, PrefixedStore, StoreChange, CreateItemChange, DeleteItemChange } from '../store';
 import BTree from 'sorted-btree';
 import { log } from '../vert';
+import { ABI, Serializer } from '@greymass/eosio';
+import { Name } from './types';
 
 export class KeyValueObject {
   id: number;
@@ -375,5 +377,31 @@ export class TableStore extends Store<Buffer,KeyValueObject> {
 
   getTableById(id: number) {
     return this.getPrefixById(id) as Table;
+  }
+}
+
+export class TableView {
+  readonly name: string;
+
+  constructor(private tab: Table, private abi: ABI | undefined = undefined) {
+    this.name = Name.from(this.tab.table).toString();
+  }
+
+  get(primaryKey: bigint): any {
+    const kv: KeyValueObject = this.tab?.get(primaryKey);
+    if (kv) {
+      if (!this.abi) {
+        return kv.value;
+      }
+      const type = this.abi.tables.find((table) => table.name === this.name);
+      if (type) {
+        return Serializer.decode({
+          abi: this.abi,
+          data: kv.value,
+          type: type,
+        })
+      }
+    }
+    return;
   }
 }

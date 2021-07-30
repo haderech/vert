@@ -2,7 +2,7 @@ import assert from 'assert';
 import { ABI, Serializer } from '@greymass/eosio';
 import { log, Vert } from '../vert';
 import { Name } from "./types";
-import { Table, KeyValueObject, IndexObject, SecondaryKeyStore, TableStore } from './table';
+import { Table, KeyValueObject, IndexObject, SecondaryKeyStore, TableStore, TableView } from './table';
 import { IteratorCache } from "./iterator-cache";
 
 import sha1 from '@conr2d/bcrypto/lib/sha1';
@@ -1088,6 +1088,20 @@ export class EosVM extends Vert {
         }
       });
     });
+    // XXX: if table whose name is same to that of action exists,
+    // accessor will be overwritten.
+    this.abi.tables.forEach((table) => {
+      const resolved = this.abi.resolveType(table.name);
+      Object.assign(this, {
+        [resolved.name]: (scope: bigint): TableView | undefined => {
+          const tab = this.store.findTable(this.context.receiver, scope, Name.from(resolved.name).toBigInt());
+          if (tab) {
+            return new TableView(tab, this.abi);
+          }
+          return;
+        },
+      });
+    });
   }
 
   apply(receiver: string, first_receiver: string, action: string) {
@@ -1122,28 +1136,5 @@ export class EosVM extends Vert {
     this.idx128 = new IteratorCache<IndexObject<bigint>>();
     this.idx256 = new IteratorCache<IndexObject<Buffer>>();
     this.idxDouble = new IteratorCache<IndexObject<number>>();
-  }
-
-  getTableRow(code: string, scope: bigint, table: string, primaryKey: bigint): any {
-    const tab = this.findTable(Name.from(code).toBigInt(), scope, Name.from(table).toBigInt());
-    const kv = tab?.get(primaryKey);
-    if (!kv) {
-      return;
-    }
-    let type;
-    for (const t of this.abi.tables) {
-      if (table == t.name) {
-        type = t.type;
-        break;
-      }
-    }
-    if (!type) {
-      return;
-    }
-    return Serializer.decode({
-      abi: this.abi,
-      data: kv.value,
-      type: type,
-    });
   }
 }

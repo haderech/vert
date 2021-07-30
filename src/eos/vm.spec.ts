@@ -48,7 +48,7 @@ describe('eos-vm', () => {
       vm.apply('eosio.token', 'eosio.token', 'create');
       const stat = currency_stats('0.000 TKN', '1000.000 TKN', 'alice');
       const symcode = SymbolCode.from('TKN').toBigInt();
-      expect(JSON.stringify(vm.getTableRow('eosio.token', symcode, 'stat', symcode))).to.equal(JSON.stringify(stat));
+      expect(JSON.stringify(vm.stat(symcode).get(symcode))).to.equal(JSON.stringify(stat));
     });
 
     it('create: negative_max_supply', () => {
@@ -76,7 +76,7 @@ describe('eos-vm', () => {
       vm.apply('eosio.token', 'eosio.token', 'create');
       const stat = currency_stats('0 TKN', '4611686018427387903 TKN', 'alice');
       const symcode = SymbolCode.from('TKN').toBigInt();
-      expect(JSON.stringify(vm.getTableRow('eosio.token', symcode, 'stat', symcode))).to.equal(JSON.stringify(stat));
+      expect(JSON.stringify(vm.stat(symcode).get(symcode))).to.equal(JSON.stringify(stat));
 
       try {
         vm.create('alice', '4611686018427387904 NKT');
@@ -91,7 +91,7 @@ describe('eos-vm', () => {
       vm.apply('eosio.token', 'eosio.token', 'create');
       const stat = currency_stats('0.000000000000000000 TKN', '1.000000000000000000 TKN', 'alice');
       const symcode = SymbolCode.from('TKN').toBigInt();
-      expect(JSON.stringify(vm.getTableRow('eosio.token', symcode, 'stat', symcode))).to.equal(JSON.stringify(stat));
+      expect(JSON.stringify(vm.stat(symcode).get(symcode))).to.equal(JSON.stringify(stat));
 
       try {
         vm.create('alice', '1.0000000000000000000 NKT');
@@ -109,9 +109,9 @@ describe('eos-vm', () => {
       vm.apply('eosio.token', 'eosio.token', 'issue');
       let stat = currency_stats('500.000 TKN', '1000.000 TKN', 'alice');
       const symcode = SymbolCode.from('TKN').toBigInt();
-      expect(JSON.stringify(vm.getTableRow('eosio.token', symcode, 'stat', symcode))).to.equal(JSON.stringify(stat));
+      expect(JSON.stringify(vm.stat(symcode).get(symcode))).to.equal(JSON.stringify(stat));
       let balance = account('500.000 TKN');
-      expect(JSON.stringify(vm.getTableRow('eosio.token', Name.from('alice').toBigInt(), 'accounts', symcode)))
+      expect(JSON.stringify(vm.accounts(Name.from('alice').toBigInt()).get(symcode)))
         .to.equal(JSON.stringify(balance));
 
       try {
@@ -140,18 +140,18 @@ describe('eos-vm', () => {
       vm.apply('eosio.token', 'eosio.token', 'issue');
       let stat = currency_stats('1000 CERO', '1000 CERO', 'alice');
       const symcode = SymbolCode.from('CERO').toBigInt();
-      expect(JSON.stringify(vm.getTableRow('eosio.token', symcode, 'stat', symcode))).to.equal(JSON.stringify(stat));
+      expect(JSON.stringify(vm.stat(symcode).get(symcode))).to.equal(JSON.stringify(stat));
       let balance = account('1000 CERO');
-      expect(JSON.stringify(vm.getTableRow('eosio.token', Name.from('alice').toBigInt(), 'accounts', symcode)))
+      expect(JSON.stringify(vm.accounts(Name.from('alice').toBigInt()).get(symcode)))
         .to.equal(JSON.stringify(balance));
 
       vm.transfer('alice', 'bob', '300 CERO', 'hola');
       vm.apply('eosio.token', 'eosio.token', 'transfer');
       balance = account('700 CERO');
-      expect(JSON.stringify(vm.getTableRow('eosio.token', Name.from('alice').toBigInt(), 'accounts', symcode)))
+      expect(JSON.stringify(vm.accounts(Name.from('alice').toBigInt()).get(symcode)))
         .to.equal(JSON.stringify(balance));
       balance = account('300 CERO');
-      expect(JSON.stringify(vm.getTableRow('eosio.token', Name.from('bob').toBigInt(), 'accounts', symcode)))
+      expect(JSON.stringify(vm.accounts(Name.from('bob').toBigInt()).get(symcode)))
         .to.equal(JSON.stringify(balance));
 
       try {
