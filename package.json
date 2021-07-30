@@ -29,7 +29,8 @@
   "dependencies": {
     "@conr2d/bcrypto": "^5.4.1",
     "@greymass/eosio": "^0.4.7",
-    "bunyan": "^1.8.15",
+    "loglevel": "^1.7.1",
+    "loglevel-plugin-prefix": "^0.8.4",
     "sorted-btree": "^1.5.0"
   }
 }

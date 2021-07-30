@@ -1,8 +1,11 @@
-import bunyan from "bunyan";
 import {Memory} from "./memory";
+import logger from "loglevel";
+import prefix from "loglevel-plugin-prefix";
 
-let log = bunyan.createLogger({ name: 'vert' });
-log.level(process.env.LOG_LEVEL);
+let log = logger;
+prefix.reg(log);
+prefix.apply(log);
+log.setLevel((process.env.LOG_LEVEL as logger.LogLevelDesc) || 'warn');
 
 class Vert {
   protected module: WebAssembly.Module;
