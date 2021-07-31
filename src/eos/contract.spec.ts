@@ -1,8 +1,7 @@
 import fs from "fs";
 import {expect} from "chai";
 import {Contract} from "./contract";
-import {Asset, Name} from "./types";
-import {Serializer} from "@greymass/eosio";
+import {Asset, Name, Serializer} from "./@greymass-eosio";
 import {TableStore} from "./table";
 
 let eosioToken;

@@ -30,13 +30,15 @@
     "mocha": "^9.0.2",
     "ts-loader": "^9.2.4",
     "ts-node": "^10.1.0",
+    "tslib": "^2.3.0",
     "typescript": "^4.2.3",
     "webpack": "^5.47.1",
     "webpack-cli": "^4.7.2"
   },
   "dependencies": {
-    "@greymass/eosio": "^0.4.7",
     "bn.js": "^4.12.0",
+    "brorand": "^1.1.0",
+    "elliptic": "^6.5.4",
     "hash.js": "^1.1.7",
     "loglevel": "^1.7.1",
     "loglevel-plugin-prefix": "^0.8.4",

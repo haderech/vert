@@ -1,8 +1,8 @@
 import {expect} from "chai";
 import {VM} from "./vm";
 import {Memory} from "../memory";
-import {Name} from "./types";
 import Buffer from "../buffer";
+import {Name} from "./@greymass-eosio";
 
 let vm;
 let memory;

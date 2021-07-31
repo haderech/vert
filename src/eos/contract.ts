@@ -1,7 +1,6 @@
 import {VM} from "./vm";
 import {TableStore, TableView} from "./table";
-import {Name} from "./types";
-import {ABI, Serializer} from '@greymass/eosio';
+import {ABI, Name, Serializer} from "./@greymass-eosio";
 
 class Action {
   constructor(private vm: VM, private context: VM.Context) {

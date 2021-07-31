@@ -1,10 +1,9 @@
 import assert from "../assert";
 import Buffer from "../buffer";
 import {log, Vert} from "../vert";
-import {Name} from "./types";
 import {IndexObject, KeyValueObject, SecondaryKeyStore, Table, TableStore} from "./table";
 import {IteratorCache} from "./iterator-cache";
-import {PublicKey, Signature} from "@greymass/eosio";
+import {Name, PublicKey, Signature} from "./@greymass-eosio";
 import {sha256, sha512, sha1, ripemd160} from "hash.js";
 
 type ptr = number;
