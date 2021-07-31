@@ -131,20 +131,22 @@ describe('eos-vm imports', () => {
       expect(vm.console).to.equal('170141183460469231731687303715884105728');
     });
 
+    /*
     it('printsf', () => {
       vm.imports.env.printsf(1.001);
-      //expect(vm.console).to.equal('1.001000e+00');
+      expect(vm.console).to.equal('1.001000e+00');
     });
 
     it('printdf', () => {
-      vm.imports.env.printsf(1.001);
-      //expect(vm.console).to.equal('1.001000000000000e+00');
+      vm.imports.env.printdf(1.001);
+      expect(vm.console).to.equal('1.001000000000000e+00');
     });
 
     it('printqf', () => {
-      vm.imports.env.printsf(1.001);
-      //expect(vm.console).to.equal('1.000999999999999890e+00');
+      vm.imports.env.printqf(1.001);
+      expect(vm.console).to.equal('1.000999999999999890e+00');
     });
+    */
 
     it('printn', () => {
       vm.imports.env.printn(Name.from('alice').toBigInt());
