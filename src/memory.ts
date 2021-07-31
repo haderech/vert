@@ -1,3 +1,5 @@
+import Buffer from "./buffer";
+
 export class Memory {
   static create(initial: number): Memory {
     return new Memory(new WebAssembly.Memory({ initial: initial }));
@@ -19,15 +21,15 @@ export class Memory {
         }
       }
     }
-    return Buffer.from(this.memory.buffer, offset, length).toString();
+    return Buffer.from_(this.memory.buffer, offset, length).toString();
   }
 
   readUInt64(offset: number): bigint {
-    return Buffer.from(this.memory.buffer, offset, 8).readBigUInt64LE();
+    return Buffer.from_(this.memory.buffer, offset, 8).readBigUInt64LE();
   }
 
   readUInt128(offset: number): bigint {
-    const buffer = Buffer.from(this.memory.buffer, offset, 16);
+    const buffer = Buffer.from_(this.memory.buffer, offset, 16);
     const low = buffer.readBigUInt64LE(0);
     const high = buffer.readBigUInt64LE(8);
     return (high << 64n) | low;
@@ -38,10 +40,10 @@ export class Memory {
   }
 
   readHex(offset: number, length: number): string {
-    return Buffer.from(this.memory.buffer, offset, length).toString('hex');
+    return Buffer.from_(this.memory.buffer, offset, length).toString('hex');
   }
 
   writeUInt64(offset: number, value: bigint): void {
-    Buffer.from(this.memory.buffer, offset, 8).writeBigUInt64LE(value);
+    Buffer.from_(this.memory.buffer, offset, 8).writeBigUInt64LE(value);
   }
 }

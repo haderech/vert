@@ -1,10 +1,12 @@
 {
   "name": "vert",
   "version": "0.1.0",
+  "homepage": "https://github.com/turnpike/vert",
   "description": "",
   "main": "dist/index.js",
   "scripts": {
     "build": "rm -rf dist && tsc",
+    "build-web": "webpack --config webpack.prod.js",
     "lint": "eslint -c .eslintrc.js --ext .ts src/",
     "start": "node dist/index",
     "test": "mocha src/**/*.spec.ts -r ts-node/register"
@@ -13,22 +15,29 @@
   "license": "MIT",
   "devDependencies": {
     "@types/chai": "^4.2.21",
+    "@types/elliptic": "^6.4.13",
     "@types/mocha": "^8.2.3",
     "@types/node": "^14.14.31",
     "@typescript-eslint/eslint-plugin": "^4.16.1",
     "@typescript-eslint/parser": "^4.16.1",
+    "buffer": "^6.0.3",
     "chai": "^4.3.4",
+    "clean-webpack-plugin": "^4.0.0-alpha.0",
     "eslint": "^7.21.0",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-jsdoc": "^32.2.0",
     "eslint-plugin-prefer-arrow": "^1.2.3",
     "mocha": "^9.0.2",
+    "ts-loader": "^9.2.4",
     "ts-node": "^10.1.0",
-    "typescript": "^4.2.3"
+    "typescript": "^4.2.3",
+    "webpack": "^5.47.1",
+    "webpack-cli": "^4.7.2"
   },
   "dependencies": {
-    "@conr2d/bcrypto": "^5.4.1",
     "@greymass/eosio": "^0.4.7",
+    "bn.js": "^4.12.0",
+    "hash.js": "^1.1.7",
     "loglevel": "^1.7.1",
     "loglevel-plugin-prefix": "^0.8.4",
     "sorted-btree": "^1.5.0"

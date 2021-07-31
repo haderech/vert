@@ -1,14 +1,11 @@
-import assert from "assert";
+import assert from "../assert";
+import Buffer from "../buffer";
 import {log, Vert} from "../vert";
 import {Name} from "./types";
 import {IndexObject, KeyValueObject, SecondaryKeyStore, Table, TableStore} from "./table";
 import {IteratorCache} from "./iterator-cache";
-
-import sha1 from "@conr2d/bcrypto/lib/sha1";
-import sha256 from "@conr2d/bcrypto/lib/sha256";
-import sha512 from "@conr2d/bcrypto/lib/sha512";
-import ripemd160 from "@conr2d/bcrypto/lib/ripemd160";
-import secp256k1 from "@conr2d/bcrypto/lib/secp256k1";
+import {PublicKey, Signature} from "@greymass/eosio";
+import {sha256, sha512, sha1, ripemd160} from "hash.js";
 
 type ptr = number;
 type i32 = number;
@@ -280,7 +277,7 @@ class VM extends Vert {
           return this.context.data.length;
         }
         const size = Math.min(len, this.context.data.length);
-        Buffer.from(this.memory.buffer, msg, len).set(this.context.data.subarray(0, size));
+        Buffer.from_(this.memory.buffer, msg, len).set(this.context.data.subarray(0, size));
         return size;
       }
       ,
@@ -340,71 +337,76 @@ class VM extends Vert {
       // crypto
       assert_sha256: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('assert_sha256');
-        const result = sha256.digest(Buffer.from(this.memory.buffer, data, len));
-        if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 32))) {
+        const result = new Uint8Array(sha256().update(Buffer.from_(this.memory.buffer, data, len)).digest());
+        if (Buffer.compare(result, Buffer.from_(this.memory.buffer, hash, 32))) {
           throw new Error('hash mismatch');
         }
       },
       assert_sha1: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('assert_sha1');
-        const result = sha1.digest(Buffer.from(this.memory.buffer, data, len));
-        if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 20))) {
+        const result = new Uint8Array(sha1().update(Buffer.from_(this.memory.buffer, data, len)).digest());
+        if (Buffer.compare(result, Buffer.from_(this.memory.buffer, hash, 20))) {
           throw new Error('hash mismatch');
         }
       },
       assert_sha512: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('assert_sha512');
-        const result = sha512.digest(Buffer.from(this.memory.buffer, data, len));
-        if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 64))) {
+        const result = new Uint8Array(sha512().update(Buffer.from_(this.memory.buffer, data, len)).digest());
+        if (Buffer.compare(result, Buffer.from_(this.memory.buffer, hash, 64))) {
           throw new Error('hash mismatch');
         }
       },
       assert_ripemd160: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('assert_ripemd160');
-        const result = ripemd160.digest(Buffer.from(this.memory.buffer, data, len));
-        if (Buffer.compare(result, Buffer.from(this.memory.buffer, hash, 20))) {
+        const result = new Uint8Array(ripemd160().update(Buffer.from_(this.memory.buffer, data, len)).digest());
+        if (Buffer.compare(result, Buffer.from_(this.memory.buffer, hash, 20))) {
           throw new Error('hash mismatch');
         }
       },
       sha256: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('sha256');
-        Buffer.from(this.memory.buffer, hash, 32).set(sha256.digest(Buffer.from(this.memory.buffer, data, len)));
+        Buffer.from_(this.memory.buffer, hash, 32).set(new Uint8Array(sha256().update(Buffer.from_(this.memory.buffer, data, len)).digest()));
       },
       sha1: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('sha1');
-        Buffer.from(this.memory.buffer, hash, 20).set(sha1.digest(Buffer.from(this.memory.buffer, data, len)));
+        Buffer.from_(this.memory.buffer, hash, 20).set(new Uint8Array(sha1().update(Buffer.from_(this.memory.buffer, data, len)).digest()));
       },
       sha512: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('sha512');
-        Buffer.from(this.memory.buffer, hash, 64).set(sha512.digest(Buffer.from(this.memory.buffer, data, len)));
+        Buffer.from_(this.memory.buffer, hash, 64).set(new Uint8Array(sha512().update(Buffer.from_(this.memory.buffer, data, len)).digest()));
       },
       ripemd160: (data: ptr, len: i32, hash: ptr): void => {
         log.debug('ripemd160');
-        Buffer.from(this.memory.buffer, hash, 20).set(ripemd160.digest(Buffer.from(this.memory.buffer, data, len)));
+        Buffer.from_(this.memory.buffer, hash, 20).set(new Uint8Array(ripemd160().update(Buffer.from_(this.memory.buffer, data, len)).digest()));
       },
       recover_key: (digest: ptr, sig: ptr, siglen: i32, pub: ptr, publen: i32): i32 => {
         log.debug('recover_key');
-        const signature = Buffer.from(this.memory.buffer, sig, siglen);
+        const signature = Buffer.from_(this.memory.buffer, sig, siglen);
         assert(signature[0] === 0, 'unsupported signature type');
-        const publicKey = secp256k1.recover(
-          Buffer.from(this.memory.buffer, digest, 32),
-          signature.slice(2),
-          (signature[1] - 27) & 0x3
-        );
+        const publicKey = Signature.from({
+          type: 'K1',
+          r: signature.slice(2, 34),
+          s: signature.slice(34, 66),
+          recid: (signature[1] - 27) & 0x3,
+        }).recoverDigest(Buffer.from_(this.memory.buffer, digest, 32)).data.array;
         const size = Math.min(publicKey.length + 1, publen);
-        Buffer.from(this.memory.buffer, pub, publen).set(publicKey.slice(0, size - 1), 1);
+        Buffer.from_(this.memory.buffer, pub, publen).set(publicKey.slice(0, size - 1), 1);
         return size;
       },
       assert_recover_key: (digest: ptr, sig: ptr, siglen: i32, pub: ptr, publen: i32): void => {
         log.debug('assert_recover_key');
-        const signature = Buffer.from(this.memory.buffer, sig, siglen);
+        const signature = Buffer.from_(this.memory.buffer, sig, siglen);
         assert(signature[0] === 0, 'unsupported signature type');
-        const publicKey = Buffer.from(this.memory.buffer, pub, publen);
+        const publicKey = Buffer.from_(this.memory.buffer, pub, publen);
         assert(publicKey[0] === 0, 'unsupported public key type');
-        assert(secp256k1.verify(
-          Buffer.from(this.memory.buffer, digest, 32),
-          signature.slice(2),
-          publicKey.slice(1)
+        assert(Signature.from({
+          type: 'K1',
+          r: signature.slice(2, 34),
+          s: signature.slice(34, 66),
+          recid: (signature[1] - 27) & 0x3,
+        }).verifyDigest(
+          Buffer.from_(this.memory.buffer, digest, 32),
+          PublicKey.from({ type: 'K1', compressed: publicKey.slice(1) })
         ), 'recovered key is different from expected one');
       },
 
@@ -455,7 +457,7 @@ class VM extends Vert {
           return kv.value.length;
         }
         const size = Math.min(len, kv.value.length);
-        Buffer.from(this.memory.buffer, data, len).set(kv.value.subarray(0, size));
+        Buffer.from_(this.memory.buffer, data, len).set(kv.value.subarray(0, size));
         return size;
       },
       db_next_i64: (iterator: i32, primary: ptr): i32 => {
@@ -543,14 +545,14 @@ class VM extends Vert {
 
         const itr = this.genericIndex.store(
           this.store.idx64, this.idx64,
-          scope, table, payer, id, Buffer.from(this.memory.buffer, secondary, 8), SecondaryKeyConverter.uint64);
+          scope, table, payer, id, Buffer.from_(this.memory.buffer, secondary, 8), SecondaryKeyConverter.uint64);
         return itr;
       },
       db_idx64_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
         log.debug('db_idx64_update');
         const payer = BigInt.asUintN(64, _payer);
         this.genericIndex.update(this.store.idx64, this.idx64, iterator, payer,
-          Buffer.from(this.memory.buffer, secondary, 8), SecondaryKeyConverter.uint64);
+          Buffer.from_(this.memory.buffer, secondary, 8), SecondaryKeyConverter.uint64);
       },
       db_idx64_remove: (iterator: number): void => {
         log.debug('db_idx64_remove');
@@ -561,28 +563,28 @@ class VM extends Vert {
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.find_secondary(this.store.idx64, this.idx64,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
       },
       db_idx64_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
         log.debug('db_idx64_find_primary');
         const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
 
         return this.genericIndex.find_primary(this.store.idx64, this.idx64,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primaryKey, SecondaryKeyConverter.uint64);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primaryKey, SecondaryKeyConverter.uint64);
       },
       db_idx64_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx64_lowerbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.lowerbound_secondary(this.store.idx64, this.idx64,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
       },
       db_idx64_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx64_upperbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.upperbound_secondary(this.store.idx64, this.idx64,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
       },
       db_idx64_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
         log.debug('db_idx64_end');
@@ -606,14 +608,14 @@ class VM extends Vert {
 
         const itr = this.genericIndex.store(
           this.store.idx128, this.idx128,
-          scope, table, payer, id, Buffer.from(this.memory.buffer, secondary, 16), SecondaryKeyConverter.uint128);
+          scope, table, payer, id, Buffer.from_(this.memory.buffer, secondary, 16), SecondaryKeyConverter.uint128);
         return itr;
       },
       db_idx128_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
         log.debug('db_idx128_update');
         const payer = BigInt.asUintN(64, _payer);
         this.genericIndex.update(this.store.idx128, this.idx128, iterator, payer,
-          Buffer.from(this.memory.buffer, secondary, 16), SecondaryKeyConverter.uint128);
+          Buffer.from_(this.memory.buffer, secondary, 16), SecondaryKeyConverter.uint128);
       },
       db_idx128_remove: (iterator: number): void => {
         log.debug('db_idx128_remove');
@@ -624,28 +626,28 @@ class VM extends Vert {
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.find_secondary(this.store.idx128, this.idx128,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
       },
       db_idx128_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
         log.debug('db_idx128_find_primary');
         const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
 
         return this.genericIndex.find_primary(this.store.idx128, this.idx128,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 16), primaryKey, SecondaryKeyConverter.uint128);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primaryKey, SecondaryKeyConverter.uint128);
       },
       db_idx128_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx128_lowerbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.lowerbound_secondary(this.store.idx128, this.idx128,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
       },
       db_idx128_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx128_upperbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.upperbound_secondary(this.store.idx128, this.idx128,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
       },
       db_idx128_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
         log.debug('db_idx128_end');
@@ -669,14 +671,14 @@ class VM extends Vert {
 
         const itr = this.genericIndex.store(
           this.store.idx256, this.idx256,
-          scope, table, payer, id, Buffer.from(this.memory.buffer, secondary, 32), SecondaryKeyConverter.checksum256);
+          scope, table, payer, id, Buffer.from_(this.memory.buffer, secondary, 32), SecondaryKeyConverter.checksum256);
         return itr;
       },
       db_idx256_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
         log.debug('db_idx256_update');
         const payer = BigInt.asUintN(64, _payer);
         this.genericIndex.update(this.store.idx256, this.idx256, iterator, payer,
-          Buffer.from(this.memory.buffer, secondary, 32), SecondaryKeyConverter.checksum256);
+          Buffer.from_(this.memory.buffer, secondary, 32), SecondaryKeyConverter.checksum256);
       },
       db_idx256_remove: (iterator: number): void => {
         log.debug('db_idx256_remove');
@@ -687,28 +689,28 @@ class VM extends Vert {
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.find_secondary(this.store.idx256, this.idx256,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
       },
       db_idx256_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
         log.debug('db_idx256_find_primary');
         const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
 
         return this.genericIndex.find_primary(this.store.idx256, this.idx256,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 32), primaryKey, SecondaryKeyConverter.checksum256);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 32), primaryKey, SecondaryKeyConverter.checksum256);
       },
       db_idx256_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx256_lowerbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.lowerbound_secondary(this.store.idx256, this.idx256,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
       },
       db_idx256_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx256_upperbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.upperbound_secondary(this.store.idx256, this.idx256,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
       },
       db_idx256_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
         log.debug('db_idx256_end');
@@ -732,14 +734,14 @@ class VM extends Vert {
 
         const itr = this.genericIndex.store(
           this.store.idxDouble, this.idxDouble,
-          scope, table, payer, id, Buffer.from(this.memory.buffer, secondary, 8), SecondaryKeyConverter.double);
+          scope, table, payer, id, Buffer.from_(this.memory.buffer, secondary, 8), SecondaryKeyConverter.double);
         return itr;
       },
       db_idx_double_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
         log.debug('db_idx_double_update');
         const payer = BigInt.asUintN(64, _payer);
         this.genericIndex.update(this.store.idxDouble, this.idxDouble, iterator, payer,
-          Buffer.from(this.memory.buffer, secondary, 8), SecondaryKeyConverter.double);
+          Buffer.from_(this.memory.buffer, secondary, 8), SecondaryKeyConverter.double);
       },
       db_idx_double_remove: (iterator: number): void => {
         log.debug('db_idx_double_remove');
@@ -750,28 +752,28 @@ class VM extends Vert {
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.find_secondary(this.store.idxDouble, this.idxDouble,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
       },
       db_idx_double_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
         log.debug('db_idx_double_find_primary');
         const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
 
         return this.genericIndex.find_primary(this.store.idxDouble, this.idxDouble,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primaryKey, SecondaryKeyConverter.double);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primaryKey, SecondaryKeyConverter.double);
       },
       db_idx_double_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx_double_lowerbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.lowerbound_secondary(this.store.idxDouble, this.idxDouble,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
       },
       db_idx_double_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx_double_upperbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.upperbound_secondary(this.store.idxDouble, this.idxDouble,
-          code, scope, table, Buffer.from(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
+          code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
       },
       db_idx_double_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
         log.debug('db_idx_double_end');

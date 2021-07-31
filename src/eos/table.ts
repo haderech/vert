@@ -1,8 +1,9 @@
-import {CreateItemChange, DeleteItemChange, PrefixedStore, Store, StoreChange} from '../store';
-import {log} from '../vert';
-import {Name} from './types';
-import BTree from 'sorted-btree';
-import {ABI, Serializer} from '@greymass/eosio';
+import {CreateItemChange, DeleteItemChange, PrefixedStore, Store, StoreChange} from "../store";
+import {log} from "../vert";
+import {Name} from "./types";
+import BTree from "sorted-btree";
+import {ABI, Serializer} from "@greymass/eosio";
+import Buffer from "../buffer";
 
 class KeyValueObject {
   id: number;

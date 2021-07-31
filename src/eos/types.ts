@@ -1,3 +1,5 @@
+import Buffer from "../buffer";
+import BN from "bn.js";
 import {
   Asset as _Asset,
   BlockTimestamp,
@@ -51,7 +53,7 @@ namespace Asset {
   }
 }
 
-type IntType = Int | number | string;
+type IntType = Int | number | string | BN;
 
 class UInt64 extends _UInt64 {
   static from(value: IntType | Uint8Array | bigint): UInt64 {
