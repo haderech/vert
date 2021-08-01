@@ -1,13 +1,46 @@
 import {VM} from "./vm";
 import {TableStore, TableView} from "./table";
-import {ABI, Name, Serializer} from "./@greymass-eosio";
+import {ABI, BlockTimestamp, Name, NameType, PermissionLevel, PermissionLevelType, Serializer, TimePointType} from "./@greymass-eosio";
 
 class Action {
   constructor(private vm: VM, private context: VM.Context) {
   }
 
-  apply() {
+  apply(args?: Action.ApplyArgsType) {
+    if (args) {
+      if (typeof args === 'string') {
+        this.context.authorization.push(PermissionLevel.from(args));
+      } else {
+        if (args.authorization !== undefined) {
+          for (const perm of args.authorization) {
+            this.context.authorization.push(PermissionLevel.from(perm));
+          }
+        }
+        if (args.timestamp !== undefined) {
+          this.context.timestamp = BlockTimestamp.from(args.timestamp);
+        }
+        if (args.first_receiver !== undefined) {
+          this.context.first_receiver = Name.from(args.first_receiver);
+        }
+      }
+    }
+    if (args === undefined || this.context.authorization.length === 0) {
+      this.context.authorization.push(PermissionLevel.from({
+        actor: this.context.receiver,
+        permission: Name.from('active'),
+      }));
+    }
     this.vm.apply(this.context);
+  }
+}
+
+namespace Action {
+  export type ApplyArgsType = ApplyArgs | string;
+
+  export class ApplyArgs {
+    first_receiver?: NameType;
+    authorization?: (PermissionLevelType | string)[];
+    timestamp?: TimePointType;
   }
 }
 

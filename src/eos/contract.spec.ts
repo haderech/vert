@@ -84,7 +84,7 @@ describe('eos-vm', () => {
 
       eosioToken.actions.create('alice', '1000.000 TKN').apply();
 
-      eosioToken.actions.issue('alice', '500.000 TKN', 'hola').apply();
+      eosioToken.actions.issue('alice', '500.000 TKN', 'hola').apply('alice@active');
       expectSameObjects(
         eosioToken.tables.stat(symcode).get(symcode),
         currency_stats('500.000 TKN', '1000.000 TKN', 'alice'),
@@ -95,19 +95,19 @@ describe('eos-vm', () => {
       );
 
       try {
-        eosioToken.actions.issue('alice', '500.001 TKN', 'hola').apply();
+        eosioToken.actions.issue('alice', '500.001 TKN', 'hola').apply('alice@active');
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: quantity exceeds available supply');
       }
 
       try {
-        eosioToken.actions.issue('alice', '-1.000 TKN', 'hola').apply();
+        eosioToken.actions.issue('alice', '-1.000 TKN', 'hola').apply('alice@active');
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: must issue positive quantity');
       }
 
       // Check whether action succeeds without exceptions
-      eosioToken.actions.issue('alice', '1.000 TKN', 'hola').apply();
+      eosioToken.actions.issue('alice', '1.000 TKN', 'hola').apply('alice@active');
     });
 
     it('transfer', () => {
@@ -115,7 +115,7 @@ describe('eos-vm', () => {
 
       eosioToken.actions.create('alice', '1000 CERO').apply();
 
-      eosioToken.actions.issue('alice', '1000 CERO', 'hola').apply();
+      eosioToken.actions.issue('alice', '1000 CERO', 'hola').apply('alice@active');
       expectSameObjects(
         eosioToken.tables.stat(symcode).get(symcode),
         currency_stats('1000 CERO', '1000 CERO', 'alice')
@@ -125,7 +125,7 @@ describe('eos-vm', () => {
         account('1000 CERO')
       );
 
-      eosioToken.actions.transfer('alice', 'bob', '300 CERO', 'hola').apply();
+      eosioToken.actions.transfer('alice', 'bob', '300 CERO', 'hola').apply('alice@active');
       expectSameObjects(
         eosioToken.tables.accounts(Name.from('alice').toBigInt()).get(symcode),
         account('700 CERO')
@@ -136,13 +136,13 @@ describe('eos-vm', () => {
       );
 
       try {
-        eosioToken.actions.transfer('alice', 'bob', '701 CERO', 'hola').apply();
+        eosioToken.actions.transfer('alice', 'bob', '701 CERO', 'hola').apply('alice@active');
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: overdrawn balance');
       }
 
       try {
-        eosioToken.actions.transfer('alice', 'bob', '-1000 CERO', 'hola').apply();
+        eosioToken.actions.transfer('alice', 'bob', '-1000 CERO', 'hola').apply('alice@active');
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: must transfer positive quantity');
       }

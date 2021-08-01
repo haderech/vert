@@ -3,7 +3,7 @@ import Buffer from "../buffer";
 import {log, Vert} from "../vert";
 import {IndexObject, KeyValueObject, SecondaryKeyStore, Table, TableStore} from "./table";
 import {IteratorCache} from "./iterator-cache";
-import {BlockTimestamp, Name, NameType, PublicKey, Signature} from "./@greymass-eosio";
+import {BlockTimestamp, Name, NameType, PermissionLevel, PublicKey, Signature} from "./@greymass-eosio";
 import {sha256, sha512, sha1, ripemd160} from "hash.js";
 
 type ptr = number;
@@ -11,6 +11,9 @@ type i32 = number;
 type i64 = bigint;
 type f32 = number;
 type f64 = number;
+
+const owner = Name.from('owner').toBigInt();
+const active = Name.from('active').toBigInt();
 
 function convertToUnsigned(...values: bigint[]) {
   return values.map(v => BigInt.asUintN(64, v));
@@ -289,16 +292,45 @@ class VM extends Vert {
       },
       require_auth: (name: i64): void => {
         log.debug('require_auth');
-        // TODO
+        let hasAuth = false;
+        for (const auth of this.context.authorization) {
+          if (auth.actor.toBigInt() === name) {
+            const permission = auth.permission.toBigInt();
+            if (permission === active || permission === owner) {
+              hasAuth = true;
+              break;
+            }
+          }
+        }
+        assert(hasAuth, 'missing required authority');
       },
       has_auth: (name: i64): boolean => {
         log.debug('has_auth');
-        // TODO
-        return true;
+        let hasAuth = false;
+        for (const auth of this.context.authorization) {
+          if (auth.actor.toBigInt() === name) {
+            const perm = auth.permission.toBigInt();
+            if (perm === active || perm === owner) {
+              hasAuth = true;
+              break;
+            }
+          }
+        }
+        return hasAuth;
       },
       require_auth2: (name: i64, permission: i64): void => {
         log.debug('require_auth2');
-        // TODO
+        let hasAuth = false;
+        for (const auth of this.context.authorization) {
+          if (auth.actor.toBigInt() === name) {
+            const perm = auth.permission.toBigInt();
+            if (perm === permission) {
+              hasAuth = true;
+              break;
+            }
+          }
+        }
+        assert(hasAuth, 'missing required authority');
       },
       is_account: (name: i64): boolean => {
         log.debug('is_account');
@@ -1102,8 +1134,9 @@ namespace VM {
     first_receiver: Name;
     action: Name;
     data: Uint8Array;
-    timestamp: BlockTimestamp;
-    console: string = '';
+    timestamp = BlockTimestamp.from(0);
+    console = '';
+    authorization: PermissionLevel[] = [];
 
     constructor(init?: Partial<Context>) {
       Object.assign(this, init);
