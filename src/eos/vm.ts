@@ -3,7 +3,7 @@ import Buffer from "../buffer";
 import {log, Vert} from "../vert";
 import {IndexObject, KeyValueObject, SecondaryKeyStore, Table, TableStore} from "./table";
 import {IteratorCache} from "./iterator-cache";
-import {Name, PublicKey, Signature} from "./@greymass-eosio";
+import {BlockTimestamp, Name, NameType, PublicKey, Signature} from "./@greymass-eosio";
 import {sha256, sha512, sha1, ripemd160} from "hash.js";
 
 type ptr = number;
@@ -76,14 +76,14 @@ class VM extends Vert {
     super(bytes);
   }
 
-  private findTable(code: bigint, scope: bigint, table: bigint): Table | undefined {
-    return this.store.findTable(code, scope, table);
+  private findTable(code: NameType, scope: NameType, table: NameType): Table | undefined {
+    return this.store.findTable(Name.from(code).toBigInt(), Name.from(scope).toBigInt(), Name.from(table).toBigInt());
   }
 
-  private findOrCreateTable(code: bigint, scope: bigint, table: bigint, payer: bigint): Table {
-    let tab = this.store.findTable(code, scope, table);
+  private findOrCreateTable(code: NameType, scope: NameType, table: NameType, payer: NameType): Table {
+    let tab = this.store.findTable(Name.from(code).toBigInt(), Name.from(scope).toBigInt(),  Name.from(table).toBigInt());
     if (!tab) {
-      tab = this.store.createTable(code, scope, table, payer);
+      tab = this.store.createTable(Name.from(code).toBigInt(), Name.from(scope).toBigInt(), Name.from(table).toBigInt(), Name.from(payer).toBigInt());
     }
     return tab;
   }
@@ -113,7 +113,7 @@ class VM extends Vert {
     ) => {
       const obj = cache.get(iterator);
       const tab = cache.getTable(obj.tableId);
-      assert(tab.code === this.context.receiver, 'db access violation');
+      assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
       if (payer === 0n) {
         payer = obj.payer;
       }
@@ -130,7 +130,7 @@ class VM extends Vert {
     ) => {
       const obj = cache.get(iterator);
       const tab = cache.getTable(obj.tableId);
-      assert(tab.code === this.context.receiver, 'db access violation');
+      assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
       index.delete(obj);
       cache.remove(iterator);
     },
@@ -320,7 +320,7 @@ class VM extends Vert {
       },
       current_receiver: (): i64 => {
         log.debug('current_receiver');
-        return BigInt.asIntN(64, this.context.receiver);
+        return BigInt.asIntN(64, this.context.receiver.toBigInt());
       },
       set_action_return_value: (value: ptr, size: i32): void => {
         log.debug('set_action_return_value');
@@ -433,7 +433,7 @@ class VM extends Vert {
         const kvPrev = this.kvCache.get(iterator);
         const kv = kvPrev.clone();
         const tab = this.kvCache.getTable(kv.tableId);
-        assert(tab.code === this.context.receiver, 'db access violation');
+        assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
         if (payer) {
           kv.payer = payer;
         }
@@ -445,7 +445,7 @@ class VM extends Vert {
         log.debug('db_remove_i64');
         const kv = this.kvCache.get(iterator);
         const tab = this.kvCache.getTable(kv.tableId);
-        assert(tab.code === this.context.receiver, 'db access violation');
+        assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
         tab.delete(kv.primaryKey);
         this.kvCache.remove(iterator);
       },
@@ -908,12 +908,12 @@ class VM extends Vert {
       },
       current_time: (): i64 => {
         log.debug('current_time');
-        return BigInt.asIntN(64, this.context.timestamp);
+        return BigInt(this.context.timestamp.value.toNumber());
       },
       is_feature_activated: (digest: ptr): boolean => {
         log.debug('is_feature_activated');
         // TODO
-        return true;
+        return false;
       },
       get_sender: (): i64 => {
         log.debug('get_sender');
@@ -970,8 +970,7 @@ class VM extends Vert {
       // builtins
       abort: () => {
         log.debug('abort');
-        // TODO
-        throw new Error('not implemented');
+        throw new Error('abort');
       },
       memmove: (dest: ptr, src: ptr, count: i32): ptr => {
         log.debug('memmove');
@@ -1068,9 +1067,9 @@ class VM extends Vert {
     this.context = context;
     try {
       (this.instance.exports.apply as CallableFunction)(
-        this.context.receiver,
-        this.context.first_receiver,
-        this.context.action);
+        this.context.receiver.toBigInt(),
+        this.context.first_receiver.toBigInt(),
+        this.context.action.toBigInt());
     } catch (e) {
       if (!(e instanceof EosioExitResult)) {
         this.revert();
@@ -1099,11 +1098,11 @@ class VM extends Vert {
 
 namespace VM {
   export class Context {
-    receiver: bigint;
-    first_receiver: bigint;
-    action: bigint;
+    receiver: Name;
+    first_receiver: Name;
+    action: Name;
     data: Uint8Array;
-    timestamp: bigint = 0n;
+    timestamp: BlockTimestamp;
     console: string = '';
 
     constructor(init?: Partial<Context>) {

@@ -43,9 +43,9 @@ class Contract {
             object: data,
           }).array;
           return new Action(this.vm, new VM.Context({
-            receiver: Name.from(this.name).toBigInt(),
-            first_receiver: Name.from(this.name).toBigInt(),
-            action: Name.from(resolved.name).toBigInt(),
+            receiver: Name.from(this.name),
+            first_receiver: Name.from(this.name),
+            action: Name.from(resolved.name),
             data: serializedData,
           }));
         }
