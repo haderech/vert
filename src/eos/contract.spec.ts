@@ -24,10 +24,7 @@ describe('eos-vm', () => {
       const symcode = Asset.SymbolCode.from('TKN').toBigInt();
 
       eosioToken.actions.create('alice', '1000.000 TKN').apply();
-      expectSameObjects(
-        eosioToken.tables.stat(symcode).get(symcode),
-        currency_stats('0.000 TKN', '1000.000 TKN', 'alice')
-      );
+      expect( eosioToken.tables.stat(symcode).get(symcode) ).to.deep.equal( currency_stats('0.000 TKN', '1000.000 TKN', 'alice') );
     });
 
     it('create: negative_max_supply', () => {
@@ -51,10 +48,7 @@ describe('eos-vm', () => {
       const symcode = Asset.SymbolCode.from('TKN').toBigInt();
 
       eosioToken.actions.create('alice', '4611686018427387903 TKN').apply();
-      expectSameObjects(
-        eosioToken.tables.stat(symcode).get(symcode),
-        currency_stats('0 TKN', '4611686018427387903 TKN', 'alice'),
-      );
+      expect( eosioToken.tables.stat(symcode).get(symcode) ).to.deep.equal( currency_stats('0 TKN', '4611686018427387903 TKN', 'alice') );
 
       try {
         eosioToken.actions.create('alice', '4611686018427387904 NKT').apply();
@@ -67,10 +61,7 @@ describe('eos-vm', () => {
       const symcode = Asset.SymbolCode.from('TKN').toBigInt();
 
       eosioToken.actions.create('alice', '1.000000000000000000 TKN').apply();
-      expectSameObjects(
-        eosioToken.tables.stat(symcode).get(symcode),
-        currency_stats('0.000000000000000000 TKN', '1.000000000000000000 TKN', 'alice'),
-      );
+      expect( eosioToken.tables.stat(symcode).get(symcode) ).to.deep.equal( currency_stats('0.000000000000000000 TKN', '1.000000000000000000 TKN', 'alice') );
 
       try {
         eosioToken.actions.create('alice', '1.0000000000000000000 NKT').apply();
@@ -85,14 +76,8 @@ describe('eos-vm', () => {
       eosioToken.actions.create('alice', '1000.000 TKN').apply();
 
       eosioToken.actions.issue('alice', '500.000 TKN', 'hola').apply('alice@active');
-      expectSameObjects(
-        eosioToken.tables.stat(symcode).get(symcode),
-        currency_stats('500.000 TKN', '1000.000 TKN', 'alice'),
-      );
-      expectSameObjects(
-        eosioToken.tables.accounts(Name.from('alice').toBigInt()).get(symcode),
-        account('500.000 TKN')
-      );
+      expect( eosioToken.tables.stat(symcode).get(symcode) ).to.deep.equal( currency_stats('500.000 TKN', '1000.000 TKN', 'alice') );
+      expect( eosioToken.tables.accounts(Name.from('alice').toBigInt()).get(symcode) ).to.deep.equal( account('500.000 TKN') );
 
       try {
         eosioToken.actions.issue('alice', '500.001 TKN', 'hola').apply('alice@active');
@@ -116,24 +101,12 @@ describe('eos-vm', () => {
       eosioToken.actions.create('alice', '1000 CERO').apply();
 
       eosioToken.actions.issue('alice', '1000 CERO', 'hola').apply('alice@active');
-      expectSameObjects(
-        eosioToken.tables.stat(symcode).get(symcode),
-        currency_stats('1000 CERO', '1000 CERO', 'alice')
-      );
-      expectSameObjects(
-        eosioToken.tables.accounts(Name.from('alice').toBigInt()).get(symcode),
-        account('1000 CERO')
-      );
+      expect( eosioToken.tables.stat(symcode).get(symcode) ).to.deep.equal( currency_stats('1000 CERO', '1000 CERO', 'alice') );
+      expect( eosioToken.tables.accounts(Name.from('alice').toBigInt()).get(symcode) ).to.deep.equal( account('1000 CERO') );
 
       eosioToken.actions.transfer('alice', 'bob', '300 CERO', 'hola').apply('alice@active');
-      expectSameObjects(
-        eosioToken.tables.accounts(Name.from('alice').toBigInt()).get(symcode),
-        account('700 CERO')
-      );
-      expectSameObjects(
-        eosioToken.tables.accounts(Name.from('bob').toBigInt()).get(symcode),
-        account('300 CERO')
-      );
+      expect( eosioToken.tables.accounts(Name.from('alice').toBigInt()).get(symcode) ).to.deep.equal( account('700 CERO') );
+      expect( eosioToken.tables.accounts(Name.from('bob').toBigInt()).get(symcode) ).to.deep.equal( account('300 CERO') );
 
       try {
         eosioToken.actions.transfer('alice', 'bob', '701 CERO', 'hola').apply('alice@active');
@@ -170,6 +143,3 @@ function account(balance: string) {
   });
 }
 
-function expectSameObjects(a: any, b: any) {
-  expect(JSON.stringify(a)).to.equal(JSON.stringify(b));
-}
