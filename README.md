@@ -1,4 +1,4 @@
-#VeRT
+# VeRT
 
 **VM emulation RunTime for WASM-based blockchain contracts**
 
