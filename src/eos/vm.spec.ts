@@ -8,7 +8,7 @@ let vm;
 let memory;
 
 beforeEach(() => {
-  vm = new VM(new Uint8Array());
+  vm = VM.from(new Uint8Array());
   memory = Memory.create(256);
   // @ts-ignore
   vm._memory = memory;

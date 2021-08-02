@@ -3,7 +3,9 @@ const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const webpack = require('webpack');
 
 module.exports = {
-  entry: './src/index.ts',
+  entry: {
+    vert: './src/index.ts',
+  },
   mode: 'production',
   module: {
     rules: [
@@ -33,7 +35,10 @@ module.exports = {
   },
   output: {
     filename: x => x.chunk.name.replace('_', '-') + '.min.js',
-    library: '[name]',
+    library: {
+      name: 'vert',
+      type: 'umd',
+    },
     path: path.resolve(__dirname, 'dist-web'),
   },
   optimization: {

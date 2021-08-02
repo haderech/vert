@@ -50,19 +50,9 @@ class Contract {
   readonly actions: any = {};
   readonly tables: any = {};
 
-  constructor(name: string, wasm: Uint8Array, abi: ABI | string, store?: TableStore);
-  constructor(name: string, wasm: VM, abi: ABI | string, store?: TableStore);
-  constructor(public readonly name: string, wasm: any, abi: ABI | string, store = new TableStore()) {
-    if (wasm instanceof VM) {
-      this.vm = wasm;
-    } else {
-      this.vm = new VM(wasm, store);
-    }
-    if (typeof abi === 'string') {
-      this.abi = ABI.from(JSON.parse(abi));
-    } else {
-      this.abi = abi;
-    }
+  constructor(public readonly name: string, wasm: Uint8Array | ReadableStream | VM, abi: any, store = new TableStore()) {
+    this.vm = VM.from(wasm, store);
+    this.abi = ABI.from(abi);
 
     this.abi.actions.forEach((action) => {
       const resolved = this.abi.resolveType(action.name as string);

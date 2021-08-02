@@ -5,7 +5,11 @@ import prefix from "loglevel-plugin-prefix";
 let log = logger;
 prefix.reg(log);
 prefix.apply(log);
-log.setLevel((process.env.LOG_LEVEL as logger.LogLevelDesc) || 'warn');
+
+try {
+  log.setLevel(process.env.LOG_LEVEL as logger.LogLevelDesc || 'warn');
+} catch (e) {
+}
 
 class Vert {
   protected module: WebAssembly.Module;
@@ -19,19 +23,23 @@ class Vert {
     return this._memory;
   }
 
-  constructor(bytes: Uint8Array) {
-    this.ready = new Promise((resolve, reject) => {
+  constructor(bytes: Uint8Array | ReadableStream) {
+    let instantiate;
+    if (bytes instanceof Uint8Array) {
+      instantiate = WebAssembly.instantiate;
+    } else {
+      instantiate = WebAssembly.instantiateStreaming;
+    }
+    this.ready = new Promise((resolve) => {
       // HACK: Use setTimeout to access derived class imports in base class constructor
       setTimeout(() => {
-        WebAssembly.instantiate(bytes, this.imports)
+        instantiate(bytes, this.imports)
           .then(result => {
             this.module = result.module;
             this.instance = result.instance;
             this._memory = new Memory(this.instance.exports.memory as WebAssembly.Memory);
             resolve();
-          }, error => {
-            reject(error);
-          });
+        });
       });
     });
   }

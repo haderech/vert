@@ -75,8 +75,15 @@ class VM extends Vert {
   // private idxLongDouble;
   private snapshot: number = 0;
 
-  constructor(bytes: Uint8Array, public store: TableStore = new TableStore()) {
-    super(bytes);
+  static from(wasm: Uint8Array | ReadableStream | VM, store: TableStore = new TableStore()) {
+    if (wasm instanceof VM) {
+      return wasm;
+    }
+    return new VM(wasm, store);
+  }
+
+  constructor(wasm: Uint8Array | ReadableStream, public store: TableStore) {
+    super(wasm);
   }
 
   private findTable(code: NameType, scope: NameType, table: NameType): Table | undefined {
