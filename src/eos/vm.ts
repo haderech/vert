@@ -297,8 +297,9 @@ class VM extends Vert {
       require_recipient: (name: i64): void => {
         log.debug('require_recipient');
       },
-      require_auth: (name: i64): void => {
+      require_auth: (_name: i64): void => {
         log.debug('require_auth');
+        const [name] = convertToUnsigned(_name);
         let hasAuth = false;
         for (const auth of this.context.authorization) {
           if (auth.actor.toBigInt() === name) {
@@ -311,8 +312,9 @@ class VM extends Vert {
         }
         assert(hasAuth, 'missing required authority');
       },
-      has_auth: (name: i64): boolean => {
+      has_auth: (_name: i64): boolean => {
         log.debug('has_auth');
+        const [name] = convertToUnsigned(_name);
         let hasAuth = false;
         for (const auth of this.context.authorization) {
           if (auth.actor.toBigInt() === name) {
@@ -325,8 +327,9 @@ class VM extends Vert {
         }
         return hasAuth;
       },
-      require_auth2: (name: i64, permission: i64): void => {
+      require_auth2: (_name: i64, _permission: i64): void => {
         log.debug('require_auth2');
+        const [name, permission] = convertToUnsigned(_name, _permission);
         let hasAuth = false;
         for (const auth of this.context.authorization) {
           if (auth.actor.toBigInt() === name) {
