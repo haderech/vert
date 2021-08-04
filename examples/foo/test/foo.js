@@ -35,7 +35,7 @@ describe('foo_test', () => {
       // try storing a negative value
       foo.actions.store('alice', -1).apply('alice@active');
     } catch (e) {
-      expect(e.message).to.be.equal('eosio_assert: require non-negative value');
+      expect(e.message).to.equal('eosio_assert: require non-negative value');
     }
   });
 
