@@ -1,23 +1,23 @@
-const fs = require('fs');
-const { Eos } = require('@turnpike/vert');
-const { expect } = require('chai');
+import fs from "fs";
+import { expect } from "chai";
+import { Eos } from "../../";
+const { Name, Contract, TableStore, Int64 } = Eos;
 
-const testName = Eos.Name.from('test');
+const testName = Name.from('test');
 
 let foo;
 
-before(async () => {
-  const wasm = fs.readFileSync('../build/foo/foo.wasm');
-  const abi = fs.readFileSync('../build/foo/foo.abi', 'utf8');
+const wasm = fs.readFileSync('foo.wasm');
+const abi = fs.readFileSync('foo.abi', 'utf8');
 
-  // contract is considered as being deployed on 'test' account
-  foo = new Eos.Contract('test', wasm, abi);
+before(async () => {
+  foo = new Contract('test', wasm, abi);
   await foo.vm.ready;
 });
 
 beforeEach(() => {
   // reset store
-  foo.vm.store = new Eos.TableStore();
+  foo.vm.store = new TableStore();
 });
 
 describe('foo_test', () => {
@@ -44,6 +44,6 @@ describe('foo_test', () => {
     foo.actions.store('test', 2).apply();
     // retrieve a row from table `data` with the scope `test` & the primary key `test`
     const data = foo.tables.data(testName.toBigInt()).get(testName.toBigInt());
-    expect(data).to.deep.equal({ owner: testName, value: Eos.Int64.from(2) });
+    expect(data).to.deep.equal({ owner: testName, value: Int64.from(2) });
   });
 });
