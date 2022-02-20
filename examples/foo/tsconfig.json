@@ -2,14 +2,11 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "es2020",
-    "outDir": "dist",
     "sourceMap": true,
-    "declaration": true,
     "esModuleInterop": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "experimentalDecorators": true
   },
-  "lib": ["es2020"],
-  "exclude": [ "examples/**/*" ]
+  "lib": ["es2020"]
 }

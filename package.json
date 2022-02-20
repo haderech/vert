@@ -4,6 +4,10 @@
   "homepage": "https://github.com/turnpike/vert",
   "description": "VM emulation RunTime for WASM-based blockchain contracts",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "rm -rf dist && tsc",
     "build-web": "webpack",
