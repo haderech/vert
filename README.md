@@ -38,6 +38,6 @@ node --experimental-wasm-bigint node_modules/mocha/bin/_mocha src/**/*.spec.ts -
 
 ## License
 
-[Apache-2.0](https://github.com/turnpike/vert/blob/master/LICENSE)
+[MIT](https://github.com/turnpike/vert/blob/master/LICENSE)
 
-[@greymass-eosio](https://github.com/turnpike/vert/blob/master/src/eos/@greymass-eosio/LICENSE)
+[@greymass-eosio](https://github.com/turnpike/vert/blob/master/LICENSE.eosio)
