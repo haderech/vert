@@ -6,3 +6,4 @@ package-lock.json
 build
 examples/**/*.wasm
 examples/**/*.abi
+.DS_Store
