@@ -11,7 +11,7 @@
   "license": "MIT",
   "dependencies": {},
   "devDependencies": {
-    "@turnpike/vert": "*",
+    "@haderech/vert": "*",
     "chai": "*",
     "mocha": "*",
     "typescript": "*",

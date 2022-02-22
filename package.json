@@ -1,7 +1,7 @@
 {
-  "name": "@turnpike/vert",
-  "version": "0.1.0",
-  "homepage": "https://github.com/turnpike/vert",
+  "name": "@haderech/vert",
+  "version": "0.1.1",
+  "homepage": "https://github.com/haderech/vert",
   "description": "VM emulation RunTime for WASM-based blockchain contracts",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
