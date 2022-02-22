@@ -13,7 +13,7 @@ The focus of VeRT is on the better compatibility than the performance, so it can
 
 ## Requirement
 
-- WebAssembly binary with the exported memory ([blanc](https://github.com/turnpike/blanc) v0.9.2 or higher)
+- WebAssembly binary with the exported memory ([blanc](https://github.com/haderech/blanc) v0.9.2 or higher)
 - JavaScript runtime with WebAssembly BigInt support (nodejs v16 or higher)
 
 ## Installation
@@ -38,6 +38,6 @@ node --experimental-wasm-bigint node_modules/mocha/bin/_mocha src/**/*.spec.ts -
 
 ## License
 
-[MIT](https://github.com/turnpike/vert/blob/master/LICENSE)
+[MIT](./LICENSE)
 
-[@greymass-eosio](https://github.com/turnpike/vert/blob/master/LICENSE.eosio)
+[@greymass-eosio](./src/eos/@greymass-eosio/LICENSE)
