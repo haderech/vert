@@ -16,7 +16,7 @@
     "test": "mocha src/**/*.spec.ts -r ts-node/register"
   },
   "author": "Jeeyong Um <conr2d@gmail.com>",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "devDependencies": {
     "@types/chai": "^4.2.21",
     "@types/elliptic": "^6.4.13",
