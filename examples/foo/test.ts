@@ -1,7 +1,9 @@
 import fs from "fs";
 import { expect } from "chai";
+import { Name, Int64 } from "@greymass/eosio"
 import { Eos } from "../../";
-const { Name, Contract, TableStore, Int64 } = Eos;
+
+const { Contract, TableStore, nameToBigInt } = Eos;
 
 const testName = Name.from('test');
 
@@ -11,7 +13,7 @@ const wasm = fs.readFileSync('foo.wasm');
 const abi = fs.readFileSync('foo.abi', 'utf8');
 
 before(async () => {
-  foo = new Contract('test', wasm, abi);
+  foo = new Contract(testName, wasm, abi);
   await foo.vm.ready;
 });
 
@@ -24,7 +26,7 @@ describe('foo_test', () => {
   it('require authorization', () => {
     try {
       // try storing value with the wrong permission
-      foo.actions.store('alice', 1).apply('bob@active');
+      foo.actions.store(['alice', 1]).apply('bob@active');
     } catch (e) {
       expect(e.message).to.equal('missing required authority');
     }
@@ -33,7 +35,7 @@ describe('foo_test', () => {
   it('non-negative value', () => {
     try {
       // try storing a negative value
-      foo.actions.store('alice', -1).apply('alice@active');
+      foo.actions.store(['alice', -1]).apply('alice@active');
     } catch (e) {
       expect(e.message).to.equal('eosio_assert: require non-negative value');
     }
@@ -41,9 +43,9 @@ describe('foo_test', () => {
 
   it('store value normally', () => {
     // if the argument of apply is omitted, it would be considered as `{contract}@active`
-    foo.actions.store('test', 2).apply();
+    foo.actions.store(['test', 2]).apply();
     // retrieve a row from table `data` with the scope `test` & the primary key `test`
-    const data = foo.tables.data(testName.toBigInt()).get(testName.toBigInt());
+    const data = foo.tables.data(nameToBigInt(testName)).get(nameToBigInt(testName));
     expect(data).to.deep.equal({ owner: testName, value: Int64.from(2) });
   });
 });
