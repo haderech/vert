@@ -2,7 +2,8 @@ import {expect} from "chai";
 import {VM} from "./vm";
 import {Memory} from "../memory";
 import Buffer from "../buffer";
-import {Name} from "./@greymass-eosio";
+import {Name} from "@greymass/eosio";
+import { nameToBigInt } from "./bn";
 
 let vm;
 let memory;
@@ -150,9 +151,9 @@ describe('eos-vm imports', () => {
     */
 
     it('printn', () => {
-      vm.imports.env.printn(Name.from('alice').toBigInt());
+      vm.imports.env.printn(nameToBigInt(Name.from('alice')));
       expect(vm.console).to.equal('alice');
-      vm.imports.env.printn(Name.from('.foo..z.k').toBigInt());
+      vm.imports.env.printn(nameToBigInt(Name.from('.foo..z.k')));
       expect(vm.console).to.equal('.foo..z.k');
     });
 

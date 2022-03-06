@@ -3,8 +3,9 @@ import Buffer from "../buffer";
 import {log, Vert} from "../vert";
 import {IndexObject, KeyValueObject, SecondaryKeyStore, Table, TableStore} from "./table";
 import {IteratorCache} from "./iterator-cache";
-import {BlockTimestamp, Name, NameType, PermissionLevel, PublicKey, Signature} from "./@greymass-eosio";
+import {BlockTimestamp, Name, NameType, PermissionLevel, PublicKey, Signature} from "@greymass/eosio";
 import {sha256, sha512, sha1, ripemd160} from "hash.js";
+import { bigIntToName, nameToBigInt, nameTypeToBigInt } from "./bn";
 
 type ptr = number;
 type i32 = number;
@@ -12,8 +13,8 @@ type i64 = bigint;
 type f32 = number;
 type f64 = number;
 
-const owner = Name.from('owner').toBigInt();
-const active = Name.from('active').toBigInt();
+const owner = nameToBigInt(Name.from('owner'));
+const active = nameToBigInt(Name.from('active'));
 
 function convertToUnsigned(...values: bigint[]) {
   return values.map(v => BigInt.asUintN(64, v));
@@ -87,13 +88,13 @@ class VM extends Vert {
   }
 
   private findTable(code: NameType, scope: NameType, table: NameType): Table | undefined {
-    return this.store.findTable(Name.from(code).toBigInt(), Name.from(scope).toBigInt(), Name.from(table).toBigInt());
+    return this.store.findTable(nameTypeToBigInt(code), nameTypeToBigInt(scope), nameTypeToBigInt(table));
   }
 
   private findOrCreateTable(code: NameType, scope: NameType, table: NameType, payer: NameType): Table {
-    let tab = this.store.findTable(Name.from(code).toBigInt(), Name.from(scope).toBigInt(),  Name.from(table).toBigInt());
+    let tab = this.store.findTable(nameTypeToBigInt(code), nameTypeToBigInt(scope), nameTypeToBigInt(table));
     if (!tab) {
-      tab = this.store.createTable(Name.from(code).toBigInt(), Name.from(scope).toBigInt(), Name.from(table).toBigInt(), Name.from(payer).toBigInt());
+      tab = this.store.createTable(nameTypeToBigInt(code), nameTypeToBigInt(scope), nameTypeToBigInt(table), nameTypeToBigInt(payer));
     }
     return tab;
   }
@@ -105,7 +106,7 @@ class VM extends Vert {
       scope: bigint, table: bigint, payer: bigint, id: bigint, secondary: Buffer, conv
     ) => {
       assert(payer !== 0n, 'must specify a valid account to pay for new record');
-      const tab = this.findOrCreateTable(this.context.receiver, scope, table, payer);
+      const tab = this.findOrCreateTable(this.context.receiver, bigIntToName(scope), bigIntToName(table), bigIntToName(payer));
       const obj = {
         tableId: tab.id,
         primaryKey: id,
@@ -123,7 +124,7 @@ class VM extends Vert {
     ) => {
       const obj = cache.get(iterator);
       const tab = cache.getTable(obj.tableId);
-      assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
+      assert(tab.code === nameToBigInt(this.context.receiver), 'db access violation');
       if (payer === 0n) {
         payer = obj.payer;
       }
@@ -140,7 +141,7 @@ class VM extends Vert {
     ) => {
       const obj = cache.get(iterator);
       const tab = cache.getTable(obj.tableId);
-      assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
+      assert(tab.code === nameToBigInt(this.context.receiver), 'db access violation');
       index.delete(obj);
       cache.remove(iterator);
     },
@@ -149,7 +150,7 @@ class VM extends Vert {
       cache: IteratorCache<IndexObject<K>>,
       code: bigint, scope: bigint, table: bigint, secondary: Buffer, primary: ptr, conv
     ) => {
-      const tab = this.findTable(code, scope, table);
+      const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
       if (!tab) {
         return -1;
       }
@@ -170,7 +171,7 @@ class VM extends Vert {
       cache: IteratorCache<IndexObject<K>>,
       code: bigint, scope: bigint, table: bigint, secondary: Buffer, primary: ptr, conv
     ) => {
-      const tab = this.findTable(code, scope, table);
+      const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
       if (!tab) {
         return -1;
       }
@@ -190,7 +191,7 @@ class VM extends Vert {
       cache: IteratorCache<IndexObject<K>>,
       code: bigint, scope: bigint, table: bigint, secondary: Buffer, primary: ptr, conv
     ) => {
-      const tab = this.findTable(code, scope, table);
+      const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
       if (!tab) {
         return -1;
       }
@@ -210,7 +211,7 @@ class VM extends Vert {
       cache: IteratorCache<IndexObject<K>>,
       code: bigint, scope: bigint, table: bigint
     ) => {
-      const tab = this.findTable(code, scope, table);
+      const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
       if (!tab) {
         return -1;
       }
@@ -260,7 +261,7 @@ class VM extends Vert {
       cache: IteratorCache<IndexObject<K>>,
       code: bigint, scope: bigint, table: bigint, secondary: Buffer, primary: bigint, conv
     ) => {
-      const tab = this.findTable(code, scope, table);
+      const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
       if (!tab) {
         return -1;
       }
@@ -302,8 +303,8 @@ class VM extends Vert {
         const [name] = convertToUnsigned(_name);
         let hasAuth = false;
         for (const auth of this.context.authorization) {
-          if (auth.actor.toBigInt() === name) {
-            const permission = auth.permission.toBigInt();
+          if (nameToBigInt(auth.actor) === name) {
+            const permission = nameToBigInt(auth.permission);
             if (permission === active || permission === owner) {
               hasAuth = true;
               break;
@@ -317,8 +318,8 @@ class VM extends Vert {
         const [name] = convertToUnsigned(_name);
         let hasAuth = false;
         for (const auth of this.context.authorization) {
-          if (auth.actor.toBigInt() === name) {
-            const perm = auth.permission.toBigInt();
+          if (nameToBigInt(auth.actor) === name) {
+            const perm = nameToBigInt(auth.permission);
             if (perm === active || perm === owner) {
               hasAuth = true;
               break;
@@ -332,8 +333,8 @@ class VM extends Vert {
         const [name, permission] = convertToUnsigned(_name, _permission);
         let hasAuth = false;
         for (const auth of this.context.authorization) {
-          if (auth.actor.toBigInt() === name) {
-            const perm = auth.permission.toBigInt();
+          if (nameToBigInt(auth.actor) === name) {
+            const perm = nameToBigInt(auth.permission);
             if (perm === permission) {
               hasAuth = true;
               break;
@@ -362,7 +363,7 @@ class VM extends Vert {
       },
       current_receiver: (): i64 => {
         log.debug('current_receiver');
-        return BigInt.asIntN(64, this.context.receiver.toBigInt());
+        return BigInt.asIntN(64, nameToBigInt(this.context.receiver));
       },
       set_action_return_value: (value: ptr, size: i32): void => {
         log.debug('set_action_return_value');
@@ -456,7 +457,7 @@ class VM extends Vert {
         log.debug('db_store_i64');
         const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
 
-        const tab = this.findOrCreateTable(this.context.receiver, scope, table, payer);
+        const tab = this.findOrCreateTable(this.context.receiver, bigIntToName(scope), bigIntToName(table), bigIntToName(payer));
         assert(payer !== 0n, 'must specify a valid account to pay for new record');
         assert(!tab.has(id), 'key uniqueness violation');
         const kv = new KeyValueObject();
@@ -475,7 +476,7 @@ class VM extends Vert {
         const kvPrev = this.kvCache.get(iterator);
         const kv = kvPrev.clone();
         const tab = this.kvCache.getTable(kv.tableId);
-        assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
+        assert(tab.code === nameToBigInt(this.context.receiver), 'db access violation');
         if (payer) {
           kv.payer = payer;
         }
@@ -487,7 +488,7 @@ class VM extends Vert {
         log.debug('db_remove_i64');
         const kv = this.kvCache.get(iterator);
         const tab = this.kvCache.getTable(kv.tableId);
-        assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
+        assert(tab.code === nameToBigInt(this.context.receiver), 'db access violation');
         tab.delete(kv.primaryKey);
         this.kvCache.remove(iterator);
       },
@@ -534,7 +535,7 @@ class VM extends Vert {
         log.debug('db_find_i64');
         const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
 
-        const tab = this.findTable(code, scope, table);
+        const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
         if (!tab) return -1;
         const ei = this.kvCache.cacheTable(tab);
         const kv = tab.get(id);
@@ -575,7 +576,7 @@ class VM extends Vert {
         log.debug('db_end_i64');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        const tab = this.findTable(code, scope, table);
+        const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
         if (!tab) return -1;
         return this.kvCache.cacheTable(tab);
       },
@@ -916,7 +917,7 @@ class VM extends Vert {
       },
       printn: (value: i64): void => {
         log.debug('printn');
-        this.context.console += Name.from(value).toString();
+        this.context.console += bigIntToName(value).toString();
       },
       printhex: (data: i32, len: i32): void => {
         log.debug('printhex');
@@ -950,7 +951,7 @@ class VM extends Vert {
       },
       current_time: (): i64 => {
         log.debug('current_time');
-        return BigInt(this.context.timestamp.value.toNumber());
+        return BigInt(this.context.timestamp.toMilliseconds()) * 1000n;
       },
       is_feature_activated: (digest: ptr): boolean => {
         log.debug('is_feature_activated');
@@ -1109,9 +1110,10 @@ class VM extends Vert {
     this.context = context;
     try {
       (this.instance.exports.apply as CallableFunction)(
-        this.context.receiver.toBigInt(),
-        this.context.first_receiver.toBigInt(),
-        this.context.action.toBigInt());
+        nameToBigInt(this.context.receiver),
+        nameToBigInt(this.context.first_receiver),
+        nameToBigInt(this.context.action)
+      );
     } catch (e) {
       if (!(e instanceof EosioExitResult)) {
         this.revert();

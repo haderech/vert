@@ -1,8 +1,9 @@
 import {CreateItemChange, DeleteItemChange, PrefixedStore, Store, StoreChange} from "../store";
 import {log} from "../vert";
 import BTree from "sorted-btree";
-import {ABI, Name, Serializer} from "./@greymass-eosio";
+import {ABI, Name, Serializer, UInt64} from "@greymass/eosio";
 import Buffer from "../buffer";
+import { bigIntToBn } from "./bn";
 
 class KeyValueObject {
   id: number;
@@ -384,7 +385,7 @@ class TableView {
   readonly name: string;
 
   constructor(private tab: Table, private abi: ABI | undefined = undefined) {
-    this.name = Name.from(this.tab.table).toString();
+    this.name = Name.from(UInt64.from(bigIntToBn(this.tab.table))).toString();
   }
 
   get(primaryKey: bigint): any {

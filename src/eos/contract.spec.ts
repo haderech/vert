@@ -1,8 +1,9 @@
 import fs from "fs";
 import {expect} from "chai";
 import {Contract} from "./contract";
-import {Asset, Name, Serializer} from "./@greymass-eosio";
+import {Asset, Name, Serializer} from "@greymass/eosio";
 import {TableStore} from "./table";
+import { nameToBigInt, symbolCodeToBigInt } from "./bn";
 
 let eosioToken;
 
@@ -10,7 +11,7 @@ const wasm = fs.readFileSync('contracts/eosio.token/eosio.token.wasm');
 const abi = fs.readFileSync('contracts/eosio.token/eosio.token.abi', 'utf8');
 
 before(async () => {
-  eosioToken = new Contract('eosio.token', wasm, abi);
+  eosioToken = new Contract(Name.from('eosio.token'), wasm, abi);
   await eosioToken.vm.ready;
 });
 
@@ -21,101 +22,126 @@ afterEach(() => {
 describe('eos-vm', () => {
   describe('eosio.token', () => {
     it('create', () => {
-      const symcode = Asset.SymbolCode.from('TKN').toBigInt();
+      const symcode = symbolCodeToBigInt(Asset.SymbolCode.from('TKN'));
 
-      eosioToken.actions.create('alice', '1000.000 TKN').apply();
-      expect( eosioToken.tables.stat(symcode).get(symcode) ).to.deep.equal( currency_stats('0.000 TKN', '1000.000 TKN', 'alice') );
+      eosioToken.actions.create(['alice', '1000.000 TKN']).apply();
+
+      const actual = eosioToken.tables.stat(symcode).get(symcode)
+      const expected: any = currency_stats('0.000 TKN', '1000.000 TKN', 'alice')
+      expect(actual.supply.equals(expected.supply)).to.be.true
+      expect(actual.max_supply.equals(expected.max_supply)).to.be.true
+      expect(actual.issuer.equals(expected.issuer)).to.be.true
     });
 
     it('create: negative_max_supply', () => {
       try {
-        eosioToken.actions.create('alice', '-1000.000 TKN').apply();
+        eosioToken.actions.create(['alice', '-1000.000 TKN']).apply();
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: max-supply must be positive');
       }
     });
 
     it('create: symbol_already_exists', () => {
-      eosioToken.actions.create('alice', '100 TKN').apply();
+      eosioToken.actions.create(['alice', '100 TKN']).apply();
       try {
-        eosioToken.actions.create('alice', '100 TKN').apply();
+        eosioToken.actions.create(['alice', '100 TKN']).apply();
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: token with symbol already exists');
       }
     });
 
     it('create: max_supply', () => {
-      const symcode = Asset.SymbolCode.from('TKN').toBigInt();
+      const symcode = symbolCodeToBigInt(Asset.SymbolCode.from('TKN'));
 
-      eosioToken.actions.create('alice', '4611686018427387903 TKN').apply();
-      expect( eosioToken.tables.stat(symcode).get(symcode) ).to.deep.equal( currency_stats('0 TKN', '4611686018427387903 TKN', 'alice') );
+      eosioToken.actions.create(['alice', '4611686018427387903 TKN']).apply();
+
+      const actual = eosioToken.tables.stat(symcode).get(symcode)
+      const expected: any = currency_stats('0 TKN', '4611686018427387903 TKN', 'alice')
+      expect(actual.supply.equals(expected.supply)).to.be.true
+      expect(actual.max_supply.equals(expected.max_supply)).to.be.true
+      expect(actual.issuer.equals(expected.issuer)).to.be.true
 
       try {
-        eosioToken.actions.create('alice', '4611686018427387904 NKT').apply();
+        eosioToken.actions.create(['alice', '4611686018427387904 NKT']).apply();
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: invalid supply');
       }
     });
 
     it('create: max_decimals', () => {
-      const symcode = Asset.SymbolCode.from('TKN').toBigInt();
+      const symcode = symbolCodeToBigInt(Asset.SymbolCode.from('TKN'));
 
-      eosioToken.actions.create('alice', '1.000000000000000000 TKN').apply();
-      expect( eosioToken.tables.stat(symcode).get(symcode) ).to.deep.equal( currency_stats('0.000000000000000000 TKN', '1.000000000000000000 TKN', 'alice') );
+      eosioToken.actions.create(['alice', '1.000000000000000000 TKN']).apply();
+      const actual = eosioToken.tables.stat(symcode).get(symcode)
+      const expected: any = currency_stats('0.000000000000000000 TKN', '1.000000000000000000 TKN', 'alice')
+      expect(actual.supply.equals(expected.supply)).to.be.true
+      expect(actual.max_supply.equals(expected.max_supply)).to.be.true
+      expect(actual.issuer.equals(expected.issuer)).to.be.true
 
       try {
-        eosioToken.actions.create('alice', '1.0000000000000000000 NKT').apply();
+        eosioToken.actions.create(['alice', '1.0000000000000000000 NKT']).apply();
       } catch (e) {
         expect(e.message).to.equal('Encoding error at root<create>.maximum_supply<asset>: Invalid asset symbol, precision too large');
       }
     });
 
     it('issue', () => {
-      const symcode = Asset.SymbolCode.from('TKN').toBigInt();
+      const symcode = symbolCodeToBigInt(Asset.SymbolCode.from('TKN'));
 
-      eosioToken.actions.create('alice', '1000.000 TKN').apply();
+      eosioToken.actions.create(['alice', '1000.000 TKN']).apply();
+      eosioToken.actions.issue(['alice', '500.000 TKN', 'hola']).apply('alice@active');
+      
+      const actualStats = eosioToken.tables.stat(symcode).get(symcode)
+      const expectedStats: any = currency_stats('500.000 TKN', '1000.000 TKN', 'alice')
+      expect(actualStats.supply.equals(expectedStats.supply)).to.be.true
+      expect(actualStats.max_supply.equals(expectedStats.max_supply)).to.be.true
+      expect(actualStats.issuer.equals(expectedStats.issuer)).to.be.true
 
-      eosioToken.actions.issue('alice', '500.000 TKN', 'hola').apply('alice@active');
-      expect( eosioToken.tables.stat(symcode).get(symcode) ).to.deep.equal( currency_stats('500.000 TKN', '1000.000 TKN', 'alice') );
-      expect( eosioToken.tables.accounts(Name.from('alice').toBigInt()).get(symcode) ).to.deep.equal( account('500.000 TKN') );
+      const actualAccount = eosioToken.tables.accounts(nameToBigInt(Name.from('alice'))).get(symcode)
+      const expectedAccount: any = account('500.000 TKN')
+      expect(actualAccount.balance.equals(expectedAccount.balance)).to.be.true
 
       try {
-        eosioToken.actions.issue('alice', '500.001 TKN', 'hola').apply('alice@active');
+        eosioToken.actions.issue(['alice', '500.001 TKN', 'hola']).apply('alice@active');
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: quantity exceeds available supply');
       }
 
       try {
-        eosioToken.actions.issue('alice', '-1.000 TKN', 'hola').apply('alice@active');
+        eosioToken.actions.issue(['alice', '-1.000 TKN', 'hola']).apply('alice@active');
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: must issue positive quantity');
       }
 
       // Check whether action succeeds without exceptions
-      eosioToken.actions.issue('alice', '1.000 TKN', 'hola').apply('alice@active');
+      eosioToken.actions.issue(['alice', '1.000 TKN', 'hola']).apply('alice@active');
     });
 
     it('transfer', () => {
-      const symcode = Asset.SymbolCode.from('CERO').toBigInt();
+      const symcode = symbolCodeToBigInt(Asset.SymbolCode.from('CERO'));
 
-      eosioToken.actions.create('alice', '1000 CERO').apply();
+      eosioToken.actions.create(['alice', '1000 CERO']).apply();
 
-      eosioToken.actions.issue('alice', '1000 CERO', 'hola').apply('alice@active');
-      expect( eosioToken.tables.stat(symcode).get(symcode) ).to.deep.equal( currency_stats('1000 CERO', '1000 CERO', 'alice') );
-      expect( eosioToken.tables.accounts(Name.from('alice').toBigInt()).get(symcode) ).to.deep.equal( account('1000 CERO') );
+      eosioToken.actions.issue(['alice', '1000 CERO', 'hola']).apply('alice@active');
+      const actual = eosioToken.tables.stat(symcode).get(symcode)
+      const expected: any = currency_stats('1000 CERO', '1000 CERO', 'alice')
+      expect(actual.supply.equals(expected.supply)).to.be.true
+      expect(actual.max_supply.equals(expected.max_supply)).to.be.true
+      expect(actual.issuer.equals(expected.issuer)).to.be.true
+      expect( eosioToken.tables.accounts(nameToBigInt(Name.from('alice'))).get(symcode).balance.equals((account('1000 CERO') as any).balance) ).to.be.true;
 
-      eosioToken.actions.transfer('alice', 'bob', '300 CERO', 'hola').apply('alice@active');
-      expect( eosioToken.tables.accounts(Name.from('alice').toBigInt()).get(symcode) ).to.deep.equal( account('700 CERO') );
-      expect( eosioToken.tables.accounts(Name.from('bob').toBigInt()).get(symcode) ).to.deep.equal( account('300 CERO') );
+      eosioToken.actions.transfer(['alice', 'bob', '300 CERO', 'hola']).apply('alice@active');
+      expect( eosioToken.tables.accounts(nameToBigInt(Name.from('alice'))).get(symcode).balance.equals((account('700 CERO') as any).balance) ).to.be.true;
+      expect( eosioToken.tables.accounts(nameToBigInt(Name.from('bob'))).get(symcode).balance.equals((account('300 CERO') as any).balance) ).to.be.true;
 
       try {
-        eosioToken.actions.transfer('alice', 'bob', '701 CERO', 'hola').apply('alice@active');
+        eosioToken.actions.transfer(['alice', 'bob', '701 CERO', 'hola']).apply('alice@active');
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: overdrawn balance');
       }
 
       try {
-        eosioToken.actions.transfer('alice', 'bob', '-1000 CERO', 'hola').apply('alice@active');
+        eosioToken.actions.transfer(['alice', 'bob', '-1000 CERO', 'hola']).apply('alice@active');
       } catch (e) {
         expect(e.message).to.equal('eosio_assert: must transfer positive quantity');
       }
