@@ -1,11 +1,15 @@
 import assert from "../assert";
 import Buffer from "../buffer";
 import {log, Vert} from "../vert";
-import {IndexObject, KeyValueObject, SecondaryKeyStore, Table, TableStore} from "./table";
+import {IndexObject, KeyValueObject, SecondaryKeyStore, Table} from "./table";
 import {IteratorCache} from "./iterator-cache";
-import {BlockTimestamp, Name, NameType, PermissionLevel, PublicKey, Signature} from "@greymass/eosio";
+import {Action, Name, NameType, PermissionLevel, PublicKey, Serializer, Signature, Transaction, UInt64} from "@greymass/eosio";
 import {sha256, sha512, sha1, ripemd160} from "hash.js";
-import { bigIntToName, nameToBigInt, nameTypeToBigInt } from "./bn";
+import {bigIntToName, nameToBigInt, nameTypeToBigInt} from "./bn";
+import {Blockchain } from "./blockchain";
+import { Account, isAuthoritySatisfied } from "./account";
+import { eosio_assert, eosio_assert_message, eosio_assert_code } from "./errors";
+import { findLastIndex } from "./utils";
 
 type ptr = number;
 type i32 = number;
@@ -75,26 +79,29 @@ class VM extends Vert {
   private idxDouble = new IteratorCache<IndexObject<number>>();
   // private idxLongDouble;
   private snapshot: number = 0;
+  private inlineActionQueue: Action[] = []
+  private bc: Blockchain
 
-  static from(wasm: Uint8Array | ReadableStream | VM, store: TableStore = new TableStore()) {
+  static from(wasm: Uint8Array | ReadableStream | VM, bc: Blockchain) {
     if (wasm instanceof VM) {
       return wasm;
     }
-    return new VM(wasm, store);
+    return new VM(wasm, bc);
   }
 
-  constructor(wasm: Uint8Array | ReadableStream, public store: TableStore) {
+  constructor(wasm: Uint8Array | ReadableStream, bc: Blockchain) {
     super(wasm);
+    this.bc = bc;
   }
 
   private findTable(code: NameType, scope: NameType, table: NameType): Table | undefined {
-    return this.store.findTable(nameTypeToBigInt(code), nameTypeToBigInt(scope), nameTypeToBigInt(table));
+    return this.bc.store.findTable(nameTypeToBigInt(code), nameTypeToBigInt(scope), nameTypeToBigInt(table));
   }
 
   private findOrCreateTable(code: NameType, scope: NameType, table: NameType, payer: NameType): Table {
-    let tab = this.store.findTable(nameTypeToBigInt(code), nameTypeToBigInt(scope), nameTypeToBigInt(table));
+    let tab = this.bc.store.findTable(nameTypeToBigInt(code), nameTypeToBigInt(scope), nameTypeToBigInt(table));
     if (!tab) {
-      tab = this.store.createTable(nameTypeToBigInt(code), nameTypeToBigInt(scope), nameTypeToBigInt(table), nameTypeToBigInt(payer));
+      tab = this.bc.store.createTable(nameTypeToBigInt(code), nameTypeToBigInt(scope), nameTypeToBigInt(table), nameTypeToBigInt(payer));
     }
     return tab;
   }
@@ -106,7 +113,7 @@ class VM extends Vert {
       scope: bigint, table: bigint, payer: bigint, id: bigint, secondary: Buffer, conv
     ) => {
       assert(payer !== 0n, 'must specify a valid account to pay for new record');
-      const tab = this.findOrCreateTable(this.context.receiver, bigIntToName(scope), bigIntToName(table), bigIntToName(payer));
+      const tab = this.findOrCreateTable(this.context.receiver.name, bigIntToName(scope), bigIntToName(table), bigIntToName(payer));
       const obj = {
         tableId: tab.id,
         primaryKey: id,
@@ -124,7 +131,7 @@ class VM extends Vert {
     ) => {
       const obj = cache.get(iterator);
       const tab = cache.getTable(obj.tableId);
-      assert(tab.code === nameToBigInt(this.context.receiver), 'db access violation');
+      assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
       if (payer === 0n) {
         payer = obj.payer;
       }
@@ -141,7 +148,7 @@ class VM extends Vert {
     ) => {
       const obj = cache.get(iterator);
       const tab = cache.getTable(obj.tableId);
-      assert(tab.code === nameToBigInt(this.context.receiver), 'db access violation');
+      assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
       index.delete(obj);
       cache.remove(iterator);
     },
@@ -295,9 +302,6 @@ class VM extends Vert {
         log.debug('action_data_size');
         return this.context.data.length;
       },
-      require_recipient: (name: i64): void => {
-        log.debug('require_recipient');
-      },
       require_auth: (_name: i64): void => {
         log.debug('require_auth');
         const [name] = convertToUnsigned(_name);
@@ -311,7 +315,8 @@ class VM extends Vert {
             }
           }
         }
-        assert(hasAuth, 'missing required authority');
+        
+        assert(hasAuth, `missing required authority ${bigIntToName(name)}`);
       },
       has_auth: (_name: i64): boolean => {
         log.debug('has_auth');
@@ -341,33 +346,99 @@ class VM extends Vert {
             }
           }
         }
-        assert(hasAuth, 'missing required authority');
+        assert(hasAuth, `missing required authority ${bigIntToName(name)}@${bigIntToName(permission)}`);
       },
       is_account: (name: i64): boolean => {
         log.debug('is_account');
-        // TODO
-        return true;
+
+        const [accountNameBigInt] = convertToUnsigned(name)
+        const accountName = bigIntToName(accountNameBigInt)
+        return !!this.bc.getAccount(accountName)
       },
+
+      require_recipient: (name: i64): void => {
+        log.debug('require_recipient');
+
+        const [accountNameBigInt] = convertToUnsigned(name)
+        const accountName = bigIntToName(accountNameBigInt)
+
+        const account = this.bc.getAccount(accountName)
+        if (!account) {
+          throw new Error(`Account ${accountName} missing for require_recipient`)
+        }
+
+        if (account.isContract) {
+          log.debug(`-> Current: ${this.context.receiver.name}::${this.context.action}`);
+          log.debug(`-> Notify Action: ${account.name}::${this.context.action}`);
+          log.debug(`-> Notify Data Size: ${this.context.data.length}`);
+
+          const context = new VM.Context({
+            sender: this.context.receiver.name,
+            receiver: account,
+            firstReceiver: this.context.receiver,
+            action: this.context.action,
+            data: this.context.data,
+            authorization: []
+          })
+
+          const lastReceiptIndex = findLastIndex(this.bc.actionsQueue, action => !action.receiver.name.equals(action.firstReceiver.name))
+          if (lastReceiptIndex == -1) {
+            this.bc.actionsQueue.unshift(context)
+          } else {
+            this.bc.actionsQueue.splice(lastReceiptIndex + 1, 0, context)
+          }
+        }
+      },
+
       send_inline: (action: ptr, size: i32): void => {
         log.debug('send_inline');
-        // TODO
+
+        const inlineBuffer = Buffer.from_(this.memory.buffer, action, size)
+        const decodedAction = Serializer.decode({
+          data: inlineBuffer,
+          type: Action,
+        })
+
+        log.debug(`-> Current: ${this.context.receiver.name}::${this.context.action}`);
+        log.debug(`-> Inline Action: ${decodedAction.account}::${decodedAction.name}`);
+        log.debug(`-> Authority: ${decodedAction.authorization}`);
+        log.debug(`-> Inline Action Size: ${decodedAction.data.array.length}`);
+
+        // Check contract exists
+        const contract = this.bc.getAccount(decodedAction.account)
+        if (!contract || !contract.isContract) {
+          throw new Error(`Contract ${decodedAction.account} is missing for inline action`)
+        }
+
+        const context = new VM.Context({
+          sender: this.context.receiver.name,
+          receiver: contract,
+          firstReceiver: contract,
+          action: decodedAction.name,
+          data: decodedAction.data.array.slice(),
+          authorization: decodedAction.authorization
+        })
+        this.bc.actionsQueue.push(context)
       },
       send_context_free_inline: (action: ptr, size: i32): void => {
         log.debug('send_context_free_inline');
         // TODO
+        throw new Error('send_context_free_inline is not implemented')
       },
       publication_time: (): i64 => {
         log.debug('publication_time');
         // TODO
+        throw new Error('publication_time is not implemented')
         return 0n;
       },
       current_receiver: (): i64 => {
         log.debug('current_receiver');
-        return BigInt.asIntN(64, nameToBigInt(this.context.receiver));
+        return BigInt.asIntN(64, this.context.receiver.toBigInt());
       },
       set_action_return_value: (value: ptr, size: i32): void => {
         log.debug('set_action_return_value');
         // TODO
+        throw new Error('set_action_return_value is not implemented')
       },
 
       // chain
@@ -457,7 +528,7 @@ class VM extends Vert {
         log.debug('db_store_i64');
         const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
 
-        const tab = this.findOrCreateTable(this.context.receiver, bigIntToName(scope), bigIntToName(table), bigIntToName(payer));
+        const tab = this.findOrCreateTable(this.context.receiver.name, bigIntToName(scope), bigIntToName(table), bigIntToName(payer));
         assert(payer !== 0n, 'must specify a valid account to pay for new record');
         assert(!tab.has(id), 'key uniqueness violation');
         const kv = new KeyValueObject();
@@ -476,7 +547,7 @@ class VM extends Vert {
         const kvPrev = this.kvCache.get(iterator);
         const kv = kvPrev.clone();
         const tab = this.kvCache.getTable(kv.tableId);
-        assert(tab.code === nameToBigInt(this.context.receiver), 'db access violation');
+        assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
         if (payer) {
           kv.payer = payer;
         }
@@ -488,7 +559,7 @@ class VM extends Vert {
         log.debug('db_remove_i64');
         const kv = this.kvCache.get(iterator);
         const tab = this.kvCache.getTable(kv.tableId);
-        assert(tab.code === nameToBigInt(this.context.receiver), 'db access violation');
+        assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
         tab.delete(kv.primaryKey);
         this.kvCache.remove(iterator);
       },
@@ -506,7 +577,7 @@ class VM extends Vert {
         log.debug('db_next_i64');
         if (iterator < -1) return -1;
         const kv = this.kvCache.get(iterator);
-        const kvNext = this.store.getTableById(kv.tableId).next(kv.primaryKey);
+        const kvNext = this.bc.store.getTableById(kv.tableId).next(kv.primaryKey);
         if (!kvNext) {
           return this.kvCache.getEndIteratorByTableId(kv.tableId);
         }
@@ -524,7 +595,7 @@ class VM extends Vert {
           return this.kvCache.add(kv);
         }
         const kv = this.kvCache.get(iterator);
-        const kvPrev = this.store.getTableById(kv.tableId).prev(kv.primaryKey);
+        const kvPrev = this.bc.store.getTableById(kv.tableId).prev(kv.primaryKey);
         if (!kvPrev) {
           return -1;
         }
@@ -546,7 +617,7 @@ class VM extends Vert {
         log.debug('db_lowerbound_i64');
         const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
 
-        const tab = this.store.findTable(code, scope, table);
+        const tab = this.bc.store.findTable(code, scope, table);
         if (!tab) {
           return -1;
         }
@@ -561,7 +632,7 @@ class VM extends Vert {
         log.debug('db_upperbound_i64');
         const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
 
-        const tab = this.store.findTable(code, scope, table);
+        const tab = this.bc.store.findTable(code, scope, table);
         if (!tab) {
           return -1;
         }
@@ -586,61 +657,61 @@ class VM extends Vert {
         const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
 
         const itr = this.genericIndex.store(
-          this.store.idx64, this.idx64,
+          this.bc.store.idx64, this.idx64,
           scope, table, payer, id, Buffer.from_(this.memory.buffer, secondary, 8), SecondaryKeyConverter.uint64);
         return itr;
       },
       db_idx64_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
         log.debug('db_idx64_update');
         const payer = BigInt.asUintN(64, _payer);
-        this.genericIndex.update(this.store.idx64, this.idx64, iterator, payer,
+        this.genericIndex.update(this.bc.store.idx64, this.idx64, iterator, payer,
           Buffer.from_(this.memory.buffer, secondary, 8), SecondaryKeyConverter.uint64);
       },
       db_idx64_remove: (iterator: number): void => {
         log.debug('db_idx64_remove');
-        this.genericIndex.remove(this.store.idx64, this.idx64, iterator);
+        this.genericIndex.remove(this.bc.store.idx64, this.idx64, iterator);
       },
       db_idx64_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx64_find_secondary');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.find_secondary(this.store.idx64, this.idx64,
+        return this.genericIndex.find_secondary(this.bc.store.idx64, this.idx64,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
       },
       db_idx64_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
         log.debug('db_idx64_find_primary');
         const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
 
-        return this.genericIndex.find_primary(this.store.idx64, this.idx64,
+        return this.genericIndex.find_primary(this.bc.store.idx64, this.idx64,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primaryKey, SecondaryKeyConverter.uint64);
       },
       db_idx64_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx64_lowerbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.lowerbound_secondary(this.store.idx64, this.idx64,
+        return this.genericIndex.lowerbound_secondary(this.bc.store.idx64, this.idx64,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
       },
       db_idx64_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx64_upperbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.upperbound_secondary(this.store.idx64, this.idx64,
+        return this.genericIndex.upperbound_secondary(this.bc.store.idx64, this.idx64,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.uint64);
       },
       db_idx64_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
         log.debug('db_idx64_end');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.end_secondary(this.store.idx64, this.idx64, code, scope, table);
+        return this.genericIndex.end_secondary(this.bc.store.idx64, this.idx64, code, scope, table);
       },
       db_idx64_next: (iterator: number, primary: ptr): i32 => {
         log.debug('db_idx64_next');
-        return this.genericIndex.next_secondary(this.store.idx64, this.idx64, iterator, primary);
+        return this.genericIndex.next_secondary(this.bc.store.idx64, this.idx64, iterator, primary);
       },
       db_idx64_previous: (iterator: number, primary: ptr): i32 => {
         log.debug('db_idx64_previous');
-        return this.genericIndex.previous_secondary(this.store.idx64, this.idx64, iterator, primary);
+        return this.genericIndex.previous_secondary(this.bc.store.idx64, this.idx64, iterator, primary);
       },
 
       // uint128_t secondary index api
@@ -649,61 +720,61 @@ class VM extends Vert {
         const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
 
         const itr = this.genericIndex.store(
-          this.store.idx128, this.idx128,
+          this.bc.store.idx128, this.idx128,
           scope, table, payer, id, Buffer.from_(this.memory.buffer, secondary, 16), SecondaryKeyConverter.uint128);
         return itr;
       },
       db_idx128_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
         log.debug('db_idx128_update');
         const payer = BigInt.asUintN(64, _payer);
-        this.genericIndex.update(this.store.idx128, this.idx128, iterator, payer,
+        this.genericIndex.update(this.bc.store.idx128, this.idx128, iterator, payer,
           Buffer.from_(this.memory.buffer, secondary, 16), SecondaryKeyConverter.uint128);
       },
       db_idx128_remove: (iterator: number): void => {
         log.debug('db_idx128_remove');
-        this.genericIndex.remove(this.store.idx128, this.idx128, iterator);
+        this.genericIndex.remove(this.bc.store.idx128, this.idx128, iterator);
       },
       db_idx128_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx128_find_secondary');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.find_secondary(this.store.idx128, this.idx128,
+        return this.genericIndex.find_secondary(this.bc.store.idx128, this.idx128,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
       },
       db_idx128_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
         log.debug('db_idx128_find_primary');
         const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
 
-        return this.genericIndex.find_primary(this.store.idx128, this.idx128,
+        return this.genericIndex.find_primary(this.bc.store.idx128, this.idx128,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primaryKey, SecondaryKeyConverter.uint128);
       },
       db_idx128_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx128_lowerbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.lowerbound_secondary(this.store.idx128, this.idx128,
+        return this.genericIndex.lowerbound_secondary(this.bc.store.idx128, this.idx128,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
       },
       db_idx128_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx128_upperbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.upperbound_secondary(this.store.idx128, this.idx128,
+        return this.genericIndex.upperbound_secondary(this.bc.store.idx128, this.idx128,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
       },
       db_idx128_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
         log.debug('db_idx128_end');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.end_secondary(this.store.idx128, this.idx128, code, scope, table);
+        return this.genericIndex.end_secondary(this.bc.store.idx128, this.idx128, code, scope, table);
       },
       db_idx128_next: (iterator: number, primary: ptr): i32 => {
         log.debug('db_idx128_next');
-        return this.genericIndex.next_secondary(this.store.idx128, this.idx128, iterator, primary);
+        return this.genericIndex.next_secondary(this.bc.store.idx128, this.idx128, iterator, primary);
       },
       db_idx128_previous: (iterator: number, primary: ptr): i32 => {
         log.debug('db_idx128_previous');
-        return this.genericIndex.previous_secondary(this.store.idx128, this.idx128, iterator, primary);
+        return this.genericIndex.previous_secondary(this.bc.store.idx128, this.idx128, iterator, primary);
       },
 
       // 256-bit secondary index api
@@ -712,61 +783,61 @@ class VM extends Vert {
         const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
 
         const itr = this.genericIndex.store(
-          this.store.idx256, this.idx256,
+          this.bc.store.idx256, this.idx256,
           scope, table, payer, id, Buffer.from_(this.memory.buffer, secondary, 32), SecondaryKeyConverter.checksum256);
         return itr;
       },
       db_idx256_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
         log.debug('db_idx256_update');
         const payer = BigInt.asUintN(64, _payer);
-        this.genericIndex.update(this.store.idx256, this.idx256, iterator, payer,
+        this.genericIndex.update(this.bc.store.idx256, this.idx256, iterator, payer,
           Buffer.from_(this.memory.buffer, secondary, 32), SecondaryKeyConverter.checksum256);
       },
       db_idx256_remove: (iterator: number): void => {
         log.debug('db_idx256_remove');
-        this.genericIndex.remove(this.store.idx256, this.idx256, iterator);
+        this.genericIndex.remove(this.bc.store.idx256, this.idx256, iterator);
       },
       db_idx256_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx256_find_secondary');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.find_secondary(this.store.idx256, this.idx256,
+        return this.genericIndex.find_secondary(this.bc.store.idx256, this.idx256,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
       },
       db_idx256_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
         log.debug('db_idx256_find_primary');
         const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
 
-        return this.genericIndex.find_primary(this.store.idx256, this.idx256,
+        return this.genericIndex.find_primary(this.bc.store.idx256, this.idx256,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 32), primaryKey, SecondaryKeyConverter.checksum256);
       },
       db_idx256_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx256_lowerbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.lowerbound_secondary(this.store.idx256, this.idx256,
+        return this.genericIndex.lowerbound_secondary(this.bc.store.idx256, this.idx256,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
       },
       db_idx256_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx256_upperbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.upperbound_secondary(this.store.idx256, this.idx256,
+        return this.genericIndex.upperbound_secondary(this.bc.store.idx256, this.idx256,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 32), primary, SecondaryKeyConverter.checksum256);
       },
       db_idx256_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
         log.debug('db_idx256_end');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.end_secondary(this.store.idx256, this.idx256, code, scope, table);
+        return this.genericIndex.end_secondary(this.bc.store.idx256, this.idx256, code, scope, table);
       },
       db_idx256_next: (iterator: number, primary: ptr): i32 => {
         log.debug('db_idx256_next');
-        return this.genericIndex.next_secondary(this.store.idx256, this.idx256, iterator, primary);
+        return this.genericIndex.next_secondary(this.bc.store.idx256, this.idx256, iterator, primary);
       },
       db_idx256_previous: (iterator: number, primary: ptr): i32 => {
         log.debug('db_idx256_previous');
-        return this.genericIndex.previous_secondary(this.store.idx256, this.idx256, iterator, primary);
+        return this.genericIndex.previous_secondary(this.bc.store.idx256, this.idx256, iterator, primary);
       },
 
       // double secondary index api
@@ -775,61 +846,61 @@ class VM extends Vert {
         const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
 
         const itr = this.genericIndex.store(
-          this.store.idxDouble, this.idxDouble,
+          this.bc.store.idxDouble, this.idxDouble,
           scope, table, payer, id, Buffer.from_(this.memory.buffer, secondary, 8), SecondaryKeyConverter.double);
         return itr;
       },
       db_idx_double_update: (iterator: number, _payer: bigint, secondary: ptr): void => {
         log.debug('db_idx_double_update');
         const payer = BigInt.asUintN(64, _payer);
-        this.genericIndex.update(this.store.idxDouble, this.idxDouble, iterator, payer,
+        this.genericIndex.update(this.bc.store.idxDouble, this.idxDouble, iterator, payer,
           Buffer.from_(this.memory.buffer, secondary, 8), SecondaryKeyConverter.double);
       },
       db_idx_double_remove: (iterator: number): void => {
         log.debug('db_idx_double_remove');
-        this.genericIndex.remove(this.store.idxDouble, this.idxDouble, iterator);
+        this.genericIndex.remove(this.bc.store.idxDouble, this.idxDouble, iterator);
       },
       db_idx_double_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx_double_find_secondary');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.find_secondary(this.store.idxDouble, this.idxDouble,
+        return this.genericIndex.find_secondary(this.bc.store.idxDouble, this.idxDouble,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
       },
       db_idx_double_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
         log.debug('db_idx_double_find_primary');
         const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
 
-        return this.genericIndex.find_primary(this.store.idxDouble, this.idxDouble,
+        return this.genericIndex.find_primary(this.bc.store.idxDouble, this.idxDouble,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primaryKey, SecondaryKeyConverter.double);
       },
       db_idx_double_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx_double_lowerbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.lowerbound_secondary(this.store.idxDouble, this.idxDouble,
+        return this.genericIndex.lowerbound_secondary(this.bc.store.idxDouble, this.idxDouble,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
       },
       db_idx_double_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
         log.debug('db_idx_double_upperbound');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.upperbound_secondary(this.store.idxDouble, this.idxDouble,
+        return this.genericIndex.upperbound_secondary(this.bc.store.idxDouble, this.idxDouble,
           code, scope, table, Buffer.from_(this.memory.buffer, secondary, 8), primary, SecondaryKeyConverter.double);
       },
       db_idx_double_end: (_code: bigint, _scope: bigint, _table: bigint): i32 => {
         log.debug('db_idx_double_end');
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
-        return this.genericIndex.end_secondary(this.store.idxDouble, this.idxDouble, code, scope, table);
+        return this.genericIndex.end_secondary(this.bc.store.idxDouble, this.idxDouble, code, scope, table);
       },
       db_idx_double_next: (iterator: number, primary: ptr): i32 => {
         log.debug('db_idx_double_next');
-        return this.genericIndex.next_secondary(this.store.idxDouble, this.idxDouble, iterator, primary);
+        return this.genericIndex.next_secondary(this.bc.store.idxDouble, this.idxDouble, iterator, primary);
       },
       db_idx_double_previous: (iterator: number, primary: ptr): i32 => {
         log.debug('db_idx_double_previous');
-        return this.genericIndex.previous_secondary(this.store.idxDouble, this.idxDouble, iterator, primary);
+        return this.genericIndex.previous_secondary(this.bc.store.idxDouble, this.idxDouble, iterator, primary);
       },
 
       // long double secondary index api
@@ -853,6 +924,7 @@ class VM extends Vert {
         permsData: ptr, permsSize: i32): i32 => {
         log.debug('check_transaction_authorization');
         // TODO
+        throw new Error('check_transaction_authorization is not implemented')
         return 1;
       },
       check_permission_authorization: (
@@ -862,66 +934,69 @@ class VM extends Vert {
         delayUs: i64): i32 => {
         log.debug('check_permission_authorization');
         // TODO
+        throw new Error('check_permission_authorization is not implemented')
         return 1;
       },
       get_permission_last_used: (account: i64, permission: i64): i64 => {
         log.debug('get_permission_last_used');
         // TODO
+        throw new Error('get_permission_last_used is not implemented')
         return 0n;
       },
       get_account_creation_time: (account: i64): i64 => {
         log.debug('get_account_creation_time');
         // TODO
+        throw new Error('get_account_creation_time is not implemented')
         return 0n;
       },
 
       // print
       prints: (msg: i32): void => {
         log.debug('prints');
-        this.context.console += this.memory.readString(msg);
+        this.bc.console += this.memory.readString(msg);
       },
       prints_l: (msg: i32, len: i32): void => {
         log.debug('prints_l');
-        this.context.console += this.memory.readString(msg, len);
+        this.bc.console += this.memory.readString(msg, len);
       },
       printi: (value: i64): void => {
         log.debug('printi');
-        this.context.console += value.toString();
+        this.bc.console += value.toString();
       },
       printui: (value: i64): void => {
         log.debug('printui');
-        this.context.console += BigInt.asUintN(64, value).toString();
+        this.bc.console += BigInt.asUintN(64, value).toString();
       },
       printi128: (value: i32): void => {
         log.debug('printi128');
-        this.context.console += this.memory.readInt128(value).toString();
+        this.bc.console += this.memory.readInt128(value).toString();
       },
       printui128: (value: i32): void => {
         log.debug('printui128');
-        this.context.console += this.memory.readUInt128(value).toString();
+        this.bc.console += this.memory.readUInt128(value).toString();
       },
       printsf: (value: f32): void => {
         log.debug('printsf');
         // TODO: print to fit precision
-        this.context.console += value.toString();
+        this.bc.console += value.toString();
       },
       printdf: (value: f64): void => {
         log.debug('printdf');
         // TODO: print to fit precision
-        this.context.console += value.toString();
+        this.bc.console += value.toString();
       },
       printqf: (value: i32): void => {
         log.debug('printqf');
         // TODO: print to fit precision
-        this.context.console += value.toString();
+        this.bc.console += value.toString();
       },
       printn: (value: i64): void => {
         log.debug('printn');
-        this.context.console += bigIntToName(value).toString();
+        this.bc.console += bigIntToName(value).toString();
       },
       printhex: (data: i32, len: i32): void => {
         log.debug('printhex');
-        this.context.console += this.memory.readHex(data, len);
+        this.bc.console += this.memory.readHex(data, len);
       },
 
       // TODO: privileged APIs
@@ -934,15 +1009,15 @@ class VM extends Vert {
       // system
       eosio_assert: (test: i32, msg: ptr): void => {
         log.debug('eosio_assert');
-        assert(test, 'eosio_assert: ' + this.memory.readString(msg));
+        assert(test, eosio_assert(this.memory.readString(msg)));
       },
       eosio_assert_message: (test: i32, msg: ptr, msg_len: i32): void => {
         log.debug('eosio_assert_message');
-        assert(test, 'eosio_assert_message: ' + this.memory.readString(msg, msg_len));
+        assert(test, eosio_assert_message(this.memory.readString(msg, msg_len)));
       },
       eosio_assert_code: (test: i32, code: i64): void => {
         log.debug('eosio_assert_code');
-        assert(test, `eosio_assert_code: ${BigInt.asUintN(64, code)}`);
+        assert(test, eosio_assert_code(BigInt.asUintN(64, code)));
       },
       eosio_exit: (code: i32): void => {
         log.debug('eosio_exit');
@@ -951,62 +1026,81 @@ class VM extends Vert {
       },
       current_time: (): i64 => {
         log.debug('current_time');
-        return BigInt(this.context.timestamp.toMilliseconds()) * 1000n;
+        return BigInt(this.bc.timestamp.toMilliseconds()) * 1000n;
       },
       is_feature_activated: (digest: ptr): boolean => {
         log.debug('is_feature_activated');
-        // TODO
+        throw new Error('is_feature_activated is not implemented')
         return false;
       },
       get_sender: (): i64 => {
         log.debug('get_sender');
-        // TODO
-        return 0n;
+        return BigInt.asIntN(64, nameToBigInt(this.context.sender));
       },
 
       // transaction
       send_deferred: (sender: ptr, payer: i64, tx: ptr, size: i32, replace: i32) => {
         log.debug('send_deferred');
         // TODO
+        throw new Error('send_deferred is not implemented')
       },
       cancel_deferred: (sender: ptr): i32 => {
         log.debug('cancel_deferred');
         // TODO
+        throw new Error('cancel_deferred is not implemented')
         return 0;
       },
       read_transaction: (buffer: ptr, size: i32): i32 => {
+
+        // bytes trx = context.get_packed_transaction();
+
+        // auto s = trx.size();
+        // if( buffer_size == 0) return s;
+
+        // auto copy_size = std::min( static_cast<size_t>(buffer_size), s );
+        // memcpy( data, trx.data(), copy_size );
+
+        // return copy_size;
+
         log.debug('read_transaction');
         // TODO
+        throw new Error('read_transaction is not implemented')
         return 0;
       },
       transaction_size: (): i32 => {
         log.debug('transaction_size');
         // TODO
+        throw new Error('transaction_size is not implemented')
         return 0;
       },
       tapos_block_num: (): i32 => {
         log.debug('tapos_block_num');
         // TODO
+        throw new Error('tapos_block_num is not implemented')
         return 0;
       },
       tapos_block_prefix: (): i32 => {
         log.debug('tapos_block_prefix');
         // TODO
+        throw new Error('tapos_block_prefix is not implemented')
         return 0;
       },
       expiration: (): i32 => {
         log.debug('expiration');
         // TODO
+        throw new Error('expiration is not implemented')
         return 0;
       },
       get_action: (type: i32, index: i32, buffer: ptr, size: i32): i32 => {
         log.debug('get_action');
         // TODO
+        throw new Error('get_action is not implemented')
         return 0;
       },
       get_context_free_data: (index: i32, buffer: ptr, size: i32): i32 => {
         log.debug('get_context_free_data');
         // TODO
+        throw new Error('get_context_free_data is not implemented')
         return 0;
       },
 
@@ -1099,19 +1193,41 @@ class VM extends Vert {
     },
   };
 
-  get console(): string {
-    const str = this.context.console;
-    this.context.console = '';
-    return str;
-  }
-
   apply(context: VM.Context) {
-    this.snapshot = this.store.snapshot();
+    this.snapshot = this.bc.store.snapshot();
     this.context = context;
+    
+    // Check authorization
+    for (const auth of this.context.authorization) {
+      // Check actor exists
+      const account = this.bc.getAccount(auth.actor)
+      if (!account) {
+        throw new Error(`Account ${auth.actor} is missing for inline action`)
+      }
+
+      // Check permission exists
+      const accountPermission = account.permissions.find(permission => permission.perm_name.equals(auth.permission))
+      if (!accountPermission) {
+        throw new Error(`Account ${auth.actor} has no permission ${auth.permission}`)
+      }
+
+      // Inline action
+      if (this.context.isInline) {
+        const satisfied = isAuthoritySatisfied(accountPermission.required_auth, PermissionLevel.from({
+          actor: this.context.sender,
+          permission: 'eosio.code'
+        }))
+        if (!satisfied) {
+          throw new Error(`Permission ${auth.actor}@${accountPermission.perm_name} is not satisfied by ${this.context.receiver.name}@eosio.code`)
+        }
+      }
+    }
+    
+    // Apply
     try {
       (this.instance.exports.apply as CallableFunction)(
-        nameToBigInt(this.context.receiver),
-        nameToBigInt(this.context.first_receiver),
+        this.context.receiver.toBigInt(),
+        this.context.firstReceiver.toBigInt(),
         nameToBigInt(this.context.action)
       );
     } catch (e) {
@@ -1125,13 +1241,10 @@ class VM extends Vert {
   }
 
   revert() {
-    this.store.revertTo(this.snapshot);
+    this.bc.store.revertTo(this.snapshot);
   }
 
   finalize() {
-    if (this.context.console.length) {
-      console.log(this.console);
-    }
     this.kvCache = new IteratorCache<KeyValueObject>();
     this.idx64 = new IteratorCache<IndexObject<bigint>>();
     this.idx128 = new IteratorCache<IndexObject<bigint>>();
@@ -1142,16 +1255,25 @@ class VM extends Vert {
 
 namespace VM {
   export class Context {
-    receiver: Name;
-    first_receiver: Name;
+    sender: Name = new Name(UInt64.from(0));
+    firstReceiver: Account;
+    // tx: Transaction; TODO
+
+    receiver: Account;
     action: Name;
     data: Uint8Array;
-    timestamp = BlockTimestamp.from(0);
-    console = '';
     authorization: PermissionLevel[] = [];
 
     constructor(init?: Partial<Context>) {
       Object.assign(this, init);
+    }
+
+    get isInline () {
+      return !this.sender.equals(new Name(UInt64.from(0)))
+    }
+
+    get isNotification () {
+      return !this.receiver.name.equals(this.firstReceiver.name)
     }
   }
 }

@@ -9,8 +9,8 @@ export function bigIntToBn (num: bigint): BN {
     return new BN(num.toString())
 }
 
-export function nameToBigInt (name: Name): bigint {
-    return bnToBigInt(name.value.value)
+export function nameToBigInt (name: NameType): bigint {
+    return bnToBigInt(Name.from(name).value.value)
 }
 
 export function bigIntToName (name: bigint): Name {

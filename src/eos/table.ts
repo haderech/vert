@@ -405,6 +405,14 @@ class TableView {
     }
     return;
   }
+
+  getJSON(primaryKey: bigint): any {
+    const value = this.get(primaryKey)
+    if (value) {
+      return Serializer.objectify(value)
+    }
+    return
+  }
 }
 
 export {

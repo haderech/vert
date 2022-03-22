@@ -1,15 +1,19 @@
-import {expect} from "chai";
-import {VM} from "./vm";
-import {Memory} from "../memory";
-import Buffer from "../buffer";
-import {Name} from "@greymass/eosio";
-import { nameToBigInt } from "./bn";
+import { expect } from "chai";
+import { VM } from "../vm";
+import { Memory } from "../../memory";
+import Buffer from "../../buffer";
+import { Name } from "@greymass/eosio";
+import { nameToBigInt } from "../bn";
+import { Blockchain } from "../blockchain";
+
+const bc = new Blockchain()
 
 let vm;
 let memory;
 
 beforeEach(() => {
-  vm = VM.from(new Uint8Array());
+  bc.clearConsole()
+  vm = VM.from(new Uint8Array(), bc);
   memory = Memory.create(256);
   // @ts-ignore
   vm._memory = memory;
@@ -81,28 +85,34 @@ describe('eos-vm imports', () => {
       const buffer = Buffer.from_(memory.buffer);
       buffer.set(Buffer.from_([104, 101, 108, 108, 111, 0]));
       vm.imports.env.prints(0);
-      expect(vm.console).to.equal('hello');
+      expect(bc.console).to.equal('hello');
     });
 
     it('prints_l', () => {
       const buffer = Buffer.from_(memory.buffer);
       buffer.set(Buffer.from_([104, 101, 108, 108, 111, 0]));
       vm.imports.env.prints_l(0, 4);
-      expect(vm.console).to.equal('hell');
+      expect(bc.console).to.equal('hell');
     });
 
     it('printi', () => {
       vm.imports.env.printi(255n);
-      expect(vm.console).to.equal('255');
+      expect(bc.console).to.equal('255');
+
+      bc.clearConsole()
+
       vm.imports.env.printi(-1n);
-      expect(vm.console).to.equal('-1');
+      expect(bc.console).to.equal('-1');
     });
 
     it('printui', () => {
       vm.imports.env.printui(255n);
-      expect(vm.console).to.equal('255');
+      expect(bc.console).to.equal('255');
+
+      bc.clearConsole()
+
       vm.imports.env.printui(-1n);
-      expect(vm.console).to.equal('18446744073709551615');
+      expect(bc.console).to.equal('18446744073709551615');
     });
 
     it('printi128', () => {
@@ -111,57 +121,64 @@ describe('eos-vm imports', () => {
       buffer.writeBigInt64LE(-1n);
       buffer.writeBigInt64LE(-1n, 8);
       vm.imports.env.printi128(0);
-      expect(vm.console).to.equal('-1');
+      expect(bc.console).to.equal('-1');
+
+      bc.clearConsole()
 
       buffer.writeBigUInt64LE(0n);
       buffer.writeBigUInt64LE(1n << 63n, 8);
       vm.imports.env.printi128(0);
-      expect(vm.console).to.equal('-170141183460469231731687303715884105728');
+      expect(bc.console).to.equal('-170141183460469231731687303715884105728');
     });
 
-    it('printui128', () => {
+    it('printui128 1', () => {
       const buffer = Buffer.from_(memory.buffer);
 
       buffer.writeBigInt64LE(-1n);
       buffer.writeBigInt64LE(-1n, 8);
       vm.imports.env.printui128(0);
-      expect(vm.console).to.equal('340282366920938463463374607431768211455');
+      expect(bc.console).to.equal('340282366920938463463374607431768211455');
+
+      bc.clearConsole()
 
       buffer.writeBigUInt64LE(0n);
       buffer.writeBigUInt64LE(1n << 63n, 8);
       vm.imports.env.printui128(0);
-      expect(vm.console).to.equal('170141183460469231731687303715884105728');
+      expect(bc.console).to.equal('170141183460469231731687303715884105728');
     });
 
     /*
     it('printsf', () => {
       vm.imports.env.printsf(1.001);
-      expect(vm.console).to.equal('1.001000e+00');
+      expect(bc.console).to.equal('1.001000e+00');
     });
 
     it('printdf', () => {
       vm.imports.env.printdf(1.001);
-      expect(vm.console).to.equal('1.001000000000000e+00');
+      expect(bc.console).to.equal('1.001000000000000e+00');
     });
 
     it('printqf', () => {
       vm.imports.env.printqf(1.001);
-      expect(vm.console).to.equal('1.000999999999999890e+00');
+      expect(bc.console).to.equal('1.000999999999999890e+00');
     });
     */
 
     it('printn', () => {
       vm.imports.env.printn(nameToBigInt(Name.from('alice')));
-      expect(vm.console).to.equal('alice');
+      expect(bc.console).to.equal('alice');
+
+      bc.clearConsole()
+
       vm.imports.env.printn(nameToBigInt(Name.from('.foo..z.k')));
-      expect(vm.console).to.equal('.foo..z.k');
+      expect(bc.console).to.equal('.foo..z.k');
     });
 
     it('printhex', () => {
       const buffer = Buffer.from_(memory.buffer);
       buffer.set([161, 178, 195, 212, 0, 1, 255, 254]);
       vm.imports.env.printhex(0, 8);
-      expect(vm.console).to.equal('a1b2c3d40001fffe');
+      expect(bc.console).to.equal('a1b2c3d40001fffe');
     });
   });
 
