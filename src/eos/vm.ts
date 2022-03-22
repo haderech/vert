@@ -79,7 +79,6 @@ class VM extends Vert {
   private idxDouble = new IteratorCache<IndexObject<number>>();
   // private idxLongDouble;
   private snapshot: number = 0;
-  private inlineActionQueue: Action[] = []
   private bc: Blockchain
 
   static from(wasm: Uint8Array | ReadableStream | VM, bc: Blockchain) {
@@ -1025,7 +1024,7 @@ class VM extends Vert {
         throw new EosioExitResult(code);
       },
       current_time: (): i64 => {
-        log.debug('current_time');
+        log.debug('current_time', BigInt(this.bc.timestamp.toMilliseconds()) * 1000n);
         return BigInt(this.bc.timestamp.toMilliseconds()) * 1000n;
       },
       is_feature_activated: (digest: ptr): boolean => {

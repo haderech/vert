@@ -1,12 +1,12 @@
-import {TableStore} from "./table";
-import {Name, BlockTimestamp, Transaction, Serializer} from "@greymass/eosio";
-import {Account, AccountArgs} from "./account";
+import { TableStore } from "./table";
+import { Name, Transaction, TimePoint } from "@greymass/eosio";
+import { Account, AccountArgs } from "./account";
 import { VM } from "./vm";
 import log from "loglevel";
 
 export class Blockchain {
   accounts: { [key: string]: Account }
-  timestamp: BlockTimestamp
+  timestamp: TimePoint
   store: TableStore
   console: string = ''
   actionsQueue: VM.Context[] = []
@@ -17,22 +17,22 @@ export class Blockchain {
     store
   }: {
     accounts?: { [key: string]: Account },
-    timestamp?: BlockTimestamp,
+    timestamp?: TimePoint,
     store?: TableStore
   } = {}) {
     this.accounts = accounts || {}
-    this.timestamp = timestamp || BlockTimestamp.from(0)
+    this.timestamp = timestamp || TimePoint.fromMilliseconds(0)
     this.store = store || new TableStore()
   }
 
-  applyTransaction (transaction: Transaction) {
+  public async applyTransaction (transaction: Transaction) {
+    await this.resetTransaction()
+
     this.actionsQueue = transaction.actions.map(action => {
       const contract = this.getAccount(action.account)
       if (!contract || !contract.isContract) {
         throw new Error(`Contract ${action.account} missing for inline action`)
       }
-
-      this.clearConsole()
 
       return new VM.Context({
         receiver: contract,
@@ -54,7 +54,7 @@ export class Blockchain {
     return this.accounts[name.toString()]
   }
 
-  public async createAccount(args: string | Omit<AccountArgs, "bc">): Promise<Account> {
+  public createAccount(args: string | Omit<AccountArgs, "bc">): Account {
     if (typeof args === "string") {
       args = { name: args }
     }
@@ -65,20 +65,34 @@ export class Blockchain {
       ...args,
       bc: this
     })
-    if (account.isContract) {
-      await account.vm.ready;
-    }
     
     this.accounts[account.name.toString()] = account
     
     return account
   }
 
-  public resetStore (store?: TableStore) {
-    this.store = store || new TableStore()
+  /**
+   * Manipulation
+   */
+
+  public setTime (time: TimePoint) {
+    this.timestamp = time
+  }
+
+  async resetTransaction () {
+    await this.resetVm()
+    this.clearConsole()
+  }
+
+  async resetVm () {
+    await Promise.all(Object.values(this.accounts).map(account => account.recreateVm()))
   }
 
   public clearConsole () {
     this.console = ''
+  }
+
+  public resetStore (store?: TableStore) {
+    this.store = store || new TableStore()
   }
 }

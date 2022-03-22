@@ -13,7 +13,7 @@
     "build-web": "webpack",
     "lint": "eslint -c .eslintrc.js --ext .ts src/",
     "start": "node dist/index",
-    "test": "mocha src/**/*.spec.ts -r ts-node/register"
+    "test": "mocha src/**/*.spec.ts -r ts-node/register && yarn --cwd examples test"
   },
   "author": "Jeeyong Um <conr2d@gmail.com>",
   "license": "MIT",

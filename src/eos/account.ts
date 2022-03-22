@@ -8,7 +8,7 @@ import { PermissionLevelWeight } from "./types";
 export interface AccountArgs {
   name: NameType,
   permissions?: API.v1.AccountPermission[],
-  wasm?: Uint8Array | ReadableStream | VM,
+  wasm?: Uint8Array | ReadableStream,
   abi?: ABI | string;
   store?: TableStore;
   bc: Blockchain;
@@ -22,9 +22,10 @@ export class Account {
 
   // Contract only
   readonly abi?: ABI;
+  readonly wasm?: Uint8Array | ReadableStream;
   readonly actions?: any = {};
   readonly tables?: any = {};
-  readonly vm?: VM;
+  public vm?: VM;
 
   constructor (accountArgs: AccountArgs) {
     if (accountArgs.abi) {
@@ -71,8 +72,6 @@ export class Account {
     if (this.isContract) {
       this.buildActions()
       this.buildTables()
-
-      this.vm = VM.from(accountArgs.wasm, this.bc);
     }
   }
 
@@ -82,6 +81,13 @@ export class Account {
 
   toBigInt () {
     return nameToBigInt(this.name)
+  }
+
+  public async recreateVm () {
+    if (this.wasm) {
+      this.vm = VM.from(this.wasm, this.bc);
+      await this.vm.ready
+    }
   }
 
   buildActions () {
@@ -112,8 +118,8 @@ export class Account {
         }).array;
 
         return {
-          send: (authorization?: PermissionLevelType) => {
-            this.bc.applyTransaction(Transaction.from({
+          send: async (authorization?: PermissionLevelType) => {
+            await this.bc.applyTransaction(Transaction.from({
               actions: [{
                 account: this.name,
                 name: Name.from(action.name),

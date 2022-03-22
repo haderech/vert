@@ -1,0 +1,25 @@
+{
+  "private": true,
+  "name": "test",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "build:foo": "blanc++ ./foo/foo.cpp",
+    "build:inline": "blanc++ ./inline/inline.cpp",
+    "build:timer": "blanc++ ./timer/timer.cpp",
+    "test:foo": "mocha ./foo/foo.spec.ts -r ts-node/register",
+    "test:inline": "mocha ./inline/inline.spec.ts -r ts-node/register",
+    "test:timer": "mocha ./timer/timer.spec.ts -r ts-node/register",
+    "test": "mocha ./**/*.spec.ts -r ts-node/register"
+  },
+  "author": "Jeeyong Um <conr2d@gmail.com>",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@haderech/vert": "*",
+    "chai": "*",
+    "mocha": "*",
+    "typescript": "*",
+    "ts-node": "*"
+  }
+}

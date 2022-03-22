@@ -1,55 +1,47 @@
 import fs from "fs";
+import path from "path";
 import { expect } from "chai";
 import { Name, Int64 } from "@greymass/eosio"
-import { Eos } from "../../dist";
-
-const { Blockchain, nameToBigInt } = Eos;
-
-const testName = Name.from('test');
-
-let foo;
-
-const wasm = fs.readFileSync('foo.wasm');
-const abi = fs.readFileSync('foo.abi', 'utf8');
+import { Blockchain, nameToBigInt } from "../../dist";
 
 const blockchain = new Blockchain()
 
-before(async () => {
-  foo = await blockchain.createAccount({
-    name: testName,
-    wasm,
-    abi
-  })
-  await blockchain.createAccount('alice')
-  await blockchain.createAccount('bob')
+const testName = Name.from('test')
+const foo = blockchain.createAccount({
+  name: testName,
+  wasm: fs.readFileSync(path.join(__dirname, '/foo.wasm')),
+  abi: fs.readFileSync(path.join(__dirname, '/foo.abi'), 'utf8')
 });
+blockchain.createAccount('alice')
+blockchain.createAccount('bob')
 
 beforeEach(() => {
   blockchain.resetStore()
 });
 
 describe('foo_test', () => {
-  it('require authorization', () => {
+  it('require authorization', async () => {
     try {
       // try storing value with the wrong permission
-      foo.actions.store(['alice', 1]).send('bob@active');
+      await foo.actions.store(['alice', 1]).send('bob@active');
     } catch (e) {
-      expect(e.message).to.equal('missing required authority');
+      expect(e.message).to.equal('missing required authority alice');
     }
   });
 
-  it('non-negative value', () => {
+  it('non-negative value', async () => {
     try {
       // try storing a negative value
-      foo.actions.store(['alice', -1]).send('alice@active');
+      await foo.actions.store(['alice', -1]).send('alice@active');
     } catch (e) {
       expect(e.message).to.equal('eosio_assert: require non-negative value');
     }
   });
 
-  it('store value normally', () => {
+  it('store value normally', async () => {
     // if the argument of apply is omitted, it would be considered as `{contract}@active`
-    foo.actions.store(['test', 2]).send();
+    await foo.actions.store(['test', 2]).send();
+    
     // retrieve a row from table `data` with the scope `test` & the primary key `test`
     const data = foo.tables.data(nameToBigInt(testName)).get(nameToBigInt(testName));
     expect(data).to.deep.equal({ owner: testName, value: Int64.from(2) });

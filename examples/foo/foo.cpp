@@ -1,4 +1,5 @@
 #include <eosio/eosio.hpp>
+#include <eosio/transaction.hpp>
 
 using namespace eosio;
 
