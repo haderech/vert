@@ -1,6 +1,6 @@
 {
-  "name": "@haderech/vert",
-  "version": "0.1.1",
+  "name": "@jafri/vert",
+  "version": "0.1.7",
   "homepage": "https://github.com/haderech/vert",
   "description": "VM emulation RunTime for WASM-based blockchain contracts",
   "main": "dist/index.js",
