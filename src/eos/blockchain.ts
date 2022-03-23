@@ -1,5 +1,5 @@
 import { TableStore } from "./table";
-import { Name, Transaction, TimePoint } from "@greymass/eosio";
+import { Name, Transaction, TimePoint, TimePointSec } from "@greymass/eosio";
 import { Account, AccountArgs } from "./account";
 import { VM } from "./vm";
 import log from "loglevel";
@@ -72,13 +72,24 @@ export class Blockchain {
   }
 
   /**
-   * Manipulation
+   * Time
    */
-
-  public setTime (time: TimePoint) {
-    this.timestamp = time
+  public setTime (time: TimePoint | TimePointSec) {
+    this.timestamp = TimePoint.fromMilliseconds(time.toMilliseconds())
+  }
+  public addTime (time: TimePoint | TimePointSec) {
+    this.timestamp = TimePoint.fromMilliseconds(this.timestamp.toMilliseconds() + time.toMilliseconds())
+  }
+  public subTime (time: TimePoint | TimePointSec) {
+    if (this.timestamp.toMilliseconds() < time.toMilliseconds()) {
+      throw new Error(`Blockchain time must not go negative`)
+    }
+    this.timestamp = TimePoint.fromMilliseconds(this.timestamp.toMilliseconds() - time.toMilliseconds())
   }
 
+  /**
+   * Reset
+   */
   async resetTransaction () {
     await this.resetVm()
     this.clearConsole()
