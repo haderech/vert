@@ -4,12 +4,14 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "build:foo": "blanc++ ./foo/foo.cpp",
-    "build:inline": "blanc++ ./inline/inline.cpp",
-    "build:timer": "blanc++ ./timer/timer.cpp",
+    "build:foo": "blanc++ ./foo/foo.cpp -o ./foo/foo.wasm",
+    "build:inline": "blanc++ ./inline/inline.cpp -o ./inline/inline.wasm",
+    "build:timer": "blanc++ ./timer/timer.cpp -o ./timer/timer.wasm",
+    "build:fixtures": "blanc++ ./fixtures/fixtures.cpp -o ./fixtures/fixtures.wasm",
     "test:foo": "mocha ./foo/foo.spec.ts -r ts-node/register",
     "test:inline": "mocha ./inline/inline.spec.ts -r ts-node/register",
     "test:timer": "mocha ./timer/timer.spec.ts -r ts-node/register",
+    "test:fixtures": "mocha ./fixtures/fixtures.spec.ts -r ts-node/register",
     "test": "mocha ./**/*.spec.ts -r ts-node/register"
   },
   "author": "Jeeyong Um <conr2d@gmail.com>",

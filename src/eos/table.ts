@@ -3,22 +3,29 @@ import {log} from "../vert";
 import BTree from "sorted-btree";
 import {ABI, Name, Serializer, UInt64} from "@greymass/eosio";
 import Buffer from "../buffer";
-import { bigIntToBn } from "./bn";
+import { bigIntToBn, nameToBigInt } from "./bn";
+import { Blockchain } from "./blockchain";
 
 class KeyValueObject {
-  id: number;
+  id: number = 0;
   tableId: number;
   primaryKey: bigint;
   payer: bigint;
   value: Uint8Array;
 
+  constructor (args: Partial<KeyValueObject>) {
+    Object.assign(this, args)
+  }
+
   clone(): KeyValueObject {
-    const kv = new KeyValueObject();
-    kv.id = this.id;
-    kv.tableId = this.tableId;
-    kv.primaryKey = this.primaryKey;
-    kv.payer = this.payer;
-    kv.value = this.value.slice();
+    const kv = new KeyValueObject({
+      id: this.id,
+      tableId: this.tableId,
+      primaryKey: this.primaryKey,
+      payer: this.payer,
+      value: this.value
+    });
+
     return kv;
   }
 }
@@ -383,35 +390,67 @@ class TableStore extends Store<Buffer,KeyValueObject> {
 
 class TableView {
   readonly name: string;
+  readonly type: ABI.Table
 
-  constructor(private tab: Table, private abi: ABI | undefined = undefined) {
+  constructor(
+    private tab: Table,
+    private abi: ABI,
+    private bc: Blockchain
+  ) {
     this.name = Name.from(UInt64.from(bigIntToBn(this.tab.table))).toString();
+    this.type = this.abi.tables.find((table) => table.name === this.name);
   }
 
   get(primaryKey: bigint): any {
-    const kv: KeyValueObject = this.tab?.get(primaryKey);
+    const kv: KeyValueObject | undefined = this.tab.get(primaryKey);
     if (kv) {
-      if (!this.abi) {
-        return kv.value;
-      }
-      const type = this.abi.tables.find((table) => table.name === this.name);
-      if (type) {
-        return Serializer.decode({
-          abi: this.abi,
-          data: kv.value,
-          type: type,
-        })
-      }
+      return Serializer.decode({
+        abi: this.abi,
+        data: kv.value,
+        type: this.type,
+      })
     }
     return;
   }
 
-  getJSON(primaryKey: bigint): any {
+  set(primaryKey: bigint, payer: Name, tableData: object) {
+    const type = this.abi.tables.find((table) => table.name === this.name);
+    if (!type) {
+      throw new Error(`Table ${this.name} not found in ABI`)
+    }
+
+    const value = Serializer.encode({
+      abi: this.abi,
+      type: this.type,
+      object: tableData
+    }).array
+
+    const kv = new KeyValueObject({
+      tableId: this.tab.id,
+      primaryKey,
+      payer: nameToBigInt(payer),
+      value,
+    })
+
+    this.tab.set(primaryKey, kv)
+  }
+
+  getTableRow(primaryKey: bigint): any {
     const value = this.get(primaryKey)
     if (value) {
       return Serializer.objectify(value)
     }
     return
+  }
+
+  getTableRows(lowerBound: bigint = BigInt(0)): any {
+    const rows = []
+    let kvNext = this.bc.store.getTableById(this.tab.id).next(lowerBound);
+    while (kvNext) {
+      rows.push(this.getTableRow(kvNext.primaryKey))
+      kvNext = this.bc.store.getTableById(this.tab.id).next(kvNext.primaryKey)
+    }
+    return rows
   }
 }
 

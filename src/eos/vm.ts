@@ -1,15 +1,15 @@
 import assert from "../assert";
 import Buffer from "../buffer";
-import {log, Vert} from "../vert";
-import {IndexObject, KeyValueObject, SecondaryKeyStore, Table} from "./table";
-import {IteratorCache} from "./iterator-cache";
-import {Action, Name, NameType, PermissionLevel, PublicKey, Serializer, Signature, Transaction, UInt64} from "@greymass/eosio";
-import {sha256, sha512, sha1, ripemd160} from "hash.js";
-import {bigIntToName, nameToBigInt, nameTypeToBigInt} from "./bn";
-import {Blockchain } from "./blockchain";
-import { Account, isAuthoritySatisfied } from "./account";
+import { log, Vert } from "../vert";
+import { IndexObject, KeyValueObject, SecondaryKeyStore, Table } from "./table";
+import { IteratorCache } from "./iterator-cache";
+import { Action, Name, NameType, PermissionLevel, PublicKey, Serializer, Signature, UInt64 } from "@greymass/eosio";
+import { sha256, sha512, sha1, ripemd160 } from "hash.js";
+import { bigIntToName, nameToBigInt, nameTypeToBigInt } from "./bn";
+import { Blockchain } from "./blockchain";
+import { Account } from "./account";
 import { eosio_assert, eosio_assert_message, eosio_assert_code } from "./errors";
-import { findLastIndex } from "./utils";
+import { findLastIndex, isAuthoritySatisfied } from "./utils";
 
 type ptr = number;
 type i32 = number;
@@ -530,7 +530,12 @@ class VM extends Vert {
         const tab = this.findOrCreateTable(this.context.receiver.name, bigIntToName(scope), bigIntToName(table), bigIntToName(payer));
         assert(payer !== 0n, 'must specify a valid account to pay for new record');
         assert(!tab.has(id), 'key uniqueness violation');
-        const kv = new KeyValueObject();
+        const kv = new KeyValueObject({
+          tableId: tab.id,
+          primaryKey: id,
+          payer,
+          value: new Uint8Array(this.memory.buffer, data, len).slice()
+        });
         kv.tableId = tab.id;
         kv.primaryKey = id;
         kv.payer = payer;

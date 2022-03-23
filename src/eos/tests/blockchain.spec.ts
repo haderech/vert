@@ -1,9 +1,8 @@
 import fs from "fs";
 import { expect } from "chai";
-import { Blockchain } from "../blockchain";
 import { Asset, Name } from "@greymass/eosio";
+import { Blockchain } from "../blockchain";
 import { nameToBigInt, symbolCodeToBigInt } from "../bn";
-import { Account } from "../account";
 import { eosio_assert } from "../errors";
 
 /**
@@ -27,13 +26,13 @@ beforeEach(() => {
  */
 const getStat = (symcode: string) => {
   const symcodeBigInt = symbolCodeToBigInt(Asset.SymbolCode.from(symcode));
-  return eosioToken.tables.stat(symcodeBigInt).getJSON(symcodeBigInt)
+  return eosioToken.tables.stat(symcodeBigInt).getTableRow(symcodeBigInt)
 }
 
 const getAccount = (accountName: string, symcode: string) => {
   const accountBigInt = nameToBigInt(Name.from(accountName));
   const symcodeBigInt = symbolCodeToBigInt(Asset.SymbolCode.from(symcode));
-  return eosioToken.tables.accounts(accountBigInt).getJSON(symcodeBigInt)
+  return eosioToken.tables.accounts(accountBigInt).getTableRow(symcodeBigInt)
 }
 
 function currency_stats(supply: string, max_supply: string, issuer: string) {

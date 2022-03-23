@@ -1,72 +1,42 @@
 import { VM } from "./vm";
-import { TableStore, TableView } from "./table";
-import { API, ABI, Authority, Name, NameType, PermissionLevel, PermissionLevelType, Serializer, Transaction } from "@greymass/eosio";
+import { TableView } from "./table";
+import { API, ABI, Name, NameType, PermissionLevel, PermissionLevelType, Serializer, Transaction, ABIDef } from "@greymass/eosio";
 import { nameToBigInt } from "./bn";
 import { Blockchain } from "./blockchain";
-import { PermissionLevelWeight } from "./types";
+import { generatePermissions, addInlinePermission } from "./utils";
 
-export interface AccountArgs {
+export type AccountArgs = Omit<Partial<Account>, 'name'|'abi'> & {
   name: NameType,
-  permissions?: API.v1.AccountPermission[],
-  wasm?: Uint8Array | ReadableStream,
-  abi?: ABI | string;
-  store?: TableStore;
-  bc: Blockchain;
+  abi?: ABIDef;
   sendsInline?: boolean;
 }
 
 export class Account {
   readonly name: Name;
-  readonly permissions: API.v1.AccountPermission[];
   readonly bc: Blockchain;
-
-  // Contract only
   readonly abi?: ABI;
   readonly wasm?: Uint8Array | ReadableStream;
   readonly actions?: any = {};
-  readonly tables?: any = {};
+  readonly tables?: { [key: string]: (scope: bigint) => TableView } = {};
+  public permissions: API.v1.AccountPermission[];
   public vm?: VM;
 
-  constructor (accountArgs: AccountArgs) {
-    if (accountArgs.abi) {
-      accountArgs.abi = ABI.from(accountArgs.abi)
+  constructor (args: AccountArgs) {
+    args.name = Name.from(args.name)
+
+    if (args.abi) {
+      args.abi = ABI.from(args.abi)
     }
 
-    if (!accountArgs.permissions) {
-      const defaultPerms = [
-        { perm_name: 'owner', parent: '' },
-        { perm_name: 'active', parent: 'owner' }
-      ]
-      accountArgs.permissions = defaultPerms.map(({ perm_name, parent }) => API.v1.AccountPermission.from({
-        perm_name,
-        parent,
-        required_auth: Authority.from({
-          threshold: 1,
-          accounts: [{
-            weight: 1,
-            permission: PermissionLevel.from({
-              actor: accountArgs.name,
-              permission: perm_name
-            })
-          }]
-        })
-      }))
+    if (!args.permissions) {
+      args.permissions = generatePermissions(args.name)
     }
 
-    if (accountArgs.sendsInline) {
-      const activePerm = accountArgs.permissions.find(perm => perm.perm_name.equals(Name.from("active")))
-      activePerm.required_auth.accounts.push(PermissionLevelWeight.from({
-        weight: 1,
-        permission: PermissionLevel.from({
-          actor: accountArgs.name,
-          permission: 'eosio.code'
-        })
-      }))
-      activePerm.required_auth.sort()
+    if (args.sendsInline) {
+      addInlinePermission(args.name, args.permissions)
     }
 
-    accountArgs.name = Name.from(accountArgs.name)
-    Object.assign(this, accountArgs)
+    Object.assign(this, args)
 
     // If contract
     if (this.isContract) {
@@ -143,25 +113,14 @@ export class Account {
     this.abi.tables.forEach((table) => {
       const resolved = this.abi.resolveType(table.name as string);
 
-      this.tables[resolved.name] = (scope: bigint): TableView | undefined => {
-        const tab = this.bc.store.findTable(nameToBigInt(this.name), scope, nameToBigInt(Name.from(resolved.name)));
-        if (tab) {
-          return new TableView(tab, this.abi);
+      this.tables[resolved.name] = (scope: bigint): TableView => {
+        let tab = this.bc.store.findTable(nameToBigInt(this.name), scope, nameToBigInt(Name.from(resolved.name)));
+        if (!tab) {
+          tab = this.bc.store.createTable(nameToBigInt(this.name), scope, nameToBigInt(Name.from(resolved.name)), nameToBigInt(this.name))
         }
-        return;
+
+        return new TableView(tab, this.abi, this.bc);
       }
     });
   }
-}
-
-export function isAuthoritySatisfied (authority: Authority, permission: PermissionLevel) {
-  const weight = authority.accounts.reduce((acc, account) => {
-    if (account.permission.equals(permission)) {
-      acc += account.weight.toNumber()
-    }
-
-    return acc
-  }, 0)
-
-  return weight >= authority.threshold.toNumber()
 }

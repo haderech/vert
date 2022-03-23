@@ -1,8 +1,8 @@
 import { expect } from "chai";
+import { Name } from "@greymass/eosio";
 import { VM } from "../vm";
 import { Memory } from "../../memory";
 import Buffer from "../../buffer";
-import { Name } from "@greymass/eosio";
 import { nameToBigInt } from "../bn";
 import { Blockchain } from "../blockchain";
 

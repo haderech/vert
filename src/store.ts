@@ -16,7 +16,7 @@ abstract class PrefixedStore<K,V> {
   set(key: K, value: V) {
     this.store.set(this.key(key), value, this);
   }
-  get(key: K): V {
+  get(key: K): V | undefined {
     return this.store.get(this.key(key));
   }
   delete(key: K) {
