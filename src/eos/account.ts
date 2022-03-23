@@ -17,7 +17,7 @@ export class Account {
   readonly abi?: ABI;
   readonly wasm?: Uint8Array | ReadableStream;
   readonly actions: any = {};
-  readonly tables: { [key: string]: (scope: bigint) => TableView } = {};
+  readonly tables: { [key: string]: (scope?: bigint) => TableView } = {};
   public permissions: API.v1.AccountPermission[];
   public vm?: VM;
 
