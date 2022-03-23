@@ -303,6 +303,7 @@ class VM extends Vert {
       },
       require_auth: (_name: i64): void => {
         log.debug('require_auth');
+
         const [name] = convertToUnsigned(_name);
         let hasAuth = false;
         for (const auth of this.context.authorization) {
@@ -314,7 +315,7 @@ class VM extends Vert {
             }
           }
         }
-        
+
         assert(hasAuth, `missing required authority ${bigIntToName(name)}`);
       },
       has_auth: (_name: i64): boolean => {
@@ -366,13 +367,12 @@ class VM extends Vert {
           throw new Error(`Account ${accountName} missing for require_recipient`)
         }
 
-        if (account.isContract) {
+        if (account.isContract && !account.name.equals(this.context.receiver.name)) {
           log.debug(`-> Current: ${this.context.receiver.name}::${this.context.action}`);
           log.debug(`-> Notify Action: ${account.name}::${this.context.action}`);
           log.debug(`-> Notify Data Size: ${this.context.data.length}`);
 
           const context = new VM.Context({
-            sender: this.context.receiver.name,
             receiver: account,
             firstReceiver: this.context.receiver,
             action: this.context.action,

@@ -45,7 +45,18 @@ export class Blockchain {
 
     while(this.actionsQueue.length) {
       const action = this.actionsQueue.shift()
-      log.debug(`\n\nSTART ACTION: ${action.receiver.name}::${action.action}`)
+
+      log.debug(`
+        \nSTART ACTION
+    Inline: ${action.isInline}
+    Notification: ${action.isNotification}
+    Contract: ${action.receiver.name}
+    Action: ${action.action}
+    First Receiver: ${action.firstReceiver.name}
+    Sender: ${action.sender}
+    Authorization: ${JSON.stringify(action.authorization)}
+      `)
+
       action.receiver.vm.apply(action)
     }
   }
