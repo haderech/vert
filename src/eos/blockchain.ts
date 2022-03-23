@@ -80,7 +80,7 @@ export class Blockchain {
   public addTime (time: TimePoint | TimePointSec) {
     this.timestamp = TimePoint.fromMilliseconds(this.timestamp.toMilliseconds() + time.toMilliseconds())
   }
-  public subTime (time: TimePoint | TimePointSec) {
+  public subtractTime (time: TimePoint | TimePointSec) {
     if (this.timestamp.toMilliseconds() < time.toMilliseconds()) {
       throw new Error(`Blockchain time must not go negative`)
     }
