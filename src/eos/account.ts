@@ -16,8 +16,8 @@ export class Account {
   readonly bc: Blockchain;
   readonly abi?: ABI;
   readonly wasm?: Uint8Array | ReadableStream;
-  readonly actions?: any = {};
-  readonly tables?: { [key: string]: (scope: bigint) => TableView } = {};
+  readonly actions: any = {};
+  readonly tables: { [key: string]: (scope: bigint) => TableView } = {};
   public permissions: API.v1.AccountPermission[];
   public vm?: VM;
 
@@ -113,7 +113,7 @@ export class Account {
     this.abi.tables.forEach((table) => {
       const resolved = this.abi.resolveType(table.name as string);
 
-      this.tables[resolved.name] = (scope: bigint): TableView => {
+      this.tables[resolved.name] = (scope: bigint = nameToBigInt(this.name)): TableView => {
         let tab = this.bc.store.findTable(nameToBigInt(this.name), scope, nameToBigInt(Name.from(resolved.name)));
         if (!tab) {
           tab = this.bc.store.createTable(nameToBigInt(this.name), scope, nameToBigInt(Name.from(resolved.name)), nameToBigInt(this.name))
