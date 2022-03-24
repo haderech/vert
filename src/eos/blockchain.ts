@@ -114,7 +114,7 @@ export class Blockchain {
     this.console = ''
   }
 
-  public resetStore (store?: TableStore) {
+  public resetTables (store?: TableStore) {
     this.store = store || new TableStore()
   }
 }

@@ -14,7 +14,7 @@ const time = blockchain.createAccount({
 })
 
 beforeEach(() => {
-  blockchain.resetStore()
+  blockchain.resetTables()
 });
 
 describe('time_test', () => {

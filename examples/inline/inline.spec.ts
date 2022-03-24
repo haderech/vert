@@ -21,7 +21,7 @@ const notified4 = strToAccount('notified4')
 
 
 beforeEach(() => {
-  blockchain.resetStore()
+  blockchain.resetTables()
 });
 
 describe('inlines_test', () => {

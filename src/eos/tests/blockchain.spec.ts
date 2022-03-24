@@ -18,7 +18,7 @@ blockchain.createAccount('alice')
 blockchain.createAccount('bob')
 
 beforeEach(() => {
-  blockchain.resetStore()
+  blockchain.resetTables()
 })
 
 /**
