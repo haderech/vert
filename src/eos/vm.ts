@@ -113,12 +113,12 @@ class VM extends Vert {
     ) => {
       assert(payer !== 0n, 'must specify a valid account to pay for new record');
       const tab = this.findOrCreateTable(this.context.receiver.name, bigIntToName(scope), bigIntToName(table), bigIntToName(payer));
-      const obj = {
+      const obj = new IndexObject<K>({
         tableId: tab.id,
         primaryKey: id,
         secondaryKey: conv.from(secondary),
         payer,
-      } as IndexObject<K>;
+      });
       index.set(undefined, obj);
       cache.cacheTable(tab);
       return cache.add(obj);
@@ -568,7 +568,7 @@ class VM extends Vert {
         this.kvCache.remove(iterator);
       },
       db_get_i64: (iterator: i32, data: ptr, len: i32): i32 => {
-        log.debug('db_get_i64');
+        log.debug(`db_get_i64: ${iterator}`);
         const kv = this.kvCache.get(iterator);
         if (!len) {
           return kv.value.length;

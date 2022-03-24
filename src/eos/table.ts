@@ -138,6 +138,10 @@ class IndexObject<K> implements IndexKey<K> {
   payer: bigint;
   secondaryKey: K;
 
+  constructor (args: Partial<IndexObject<K>>) {
+    Object.assign(this, args)
+  }
+
   static compareTable(a, b) {
     return (a.tableId < b.tableId) ? -1 : (a.tableId > b.tableId) ? 1 : 0;
   }
@@ -161,8 +165,8 @@ class IndexObject<K> implements IndexKey<K> {
     const obj = { ...this };
     if (obj.secondaryKey instanceof Uint8Array) {
       obj.secondaryKey = (obj.secondaryKey as Uint8Array).slice() as any as K;
-      return obj;
     }
+    return new IndexObject<K>(obj)
   }
 }
 
@@ -321,8 +325,8 @@ class CreateSecondaryKeyChange implements StoreChange {
     Object.assign(this, init);
   }
   revert(store) {
-    log.debug('revert secondary key creation');
-    if (this.keystore.get(this.key)) {
+    log.debug(`revert secondary key ${this.key.primaryKey} creation.`);
+    if (!this.keystore.get(this.key)) {
       throw new Error('revert stack is corrupted');
     }
     this.keystore.delete(this.key, true);
@@ -445,7 +449,7 @@ class TableView {
 
   getTableRows(lowerBound: bigint = BigInt(0)): any {
     const rows = []
-    let kvNext = this.bc.store.getTableById(this.tab.id).next(lowerBound);
+    let kvNext = this.bc.store.getTableById(this.tab.id).lowerbound(0n)
     while (kvNext) {
       rows.push(this.getTableRow(kvNext.primaryKey))
       kvNext = this.bc.store.getTableById(this.tab.id).next(kvNext.primaryKey)

@@ -267,7 +267,7 @@ class DeleteItemChange implements StoreChange {
   }
   revert(store) {
     log.debug('revert item deletion');
-    if (!store.internal.has(this.key)) {
+    if (store.internal.has(this.key)) {
       throw new Error('revert stack is corrupted');
     }
     store.internal.set(this.key, this.value);
