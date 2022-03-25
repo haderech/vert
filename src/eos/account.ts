@@ -102,7 +102,7 @@ export class Account {
               expiration: 0,
               ref_block_num: 0,
               ref_block_prefix: 0,
-            }))
+            }), data)
           }
         }
       }

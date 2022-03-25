@@ -148,7 +148,9 @@ class IndexObject<K> implements IndexKey<K> {
 
   static compare(a, b): number {
     return IndexObject.compareTable(a, b) ||
-      ((a.primaryKey < b.primaryKey) ? -1 : (a.primaryKey > b.primaryKey) ? 1 : 0);
+      (a.ignorePrimaryKey || b.ignorePrimaryKey)
+        ? 0
+        : ((a.primaryKey < b.primaryKey) ? -1 : (a.primaryKey > b.primaryKey) ? 1 : 0);
   }
 
   static comparePrimitives(a, b) {
@@ -177,6 +179,7 @@ interface IndexPrimaryKey {
 
 interface IndexKey<K> extends IndexPrimaryKey {
   secondaryKey: K;
+  ignorePrimaryKey?: boolean;
 }
 
 class SecondaryKeyStore<K> {

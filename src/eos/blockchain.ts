@@ -25,7 +25,7 @@ export class Blockchain {
     this.store = store || new TableStore()
   }
 
-  public async applyTransaction (transaction: Transaction) {
+  public async applyTransaction (transaction: Transaction, decodedData?: any) {
     await this.resetTransaction()
 
     this.actionsQueue = transaction.actions.map(action => {
@@ -39,7 +39,8 @@ export class Blockchain {
         firstReceiver: contract,
         action: action.name,
         data: action.data.array,
-        authorization: action.authorization
+        authorization: action.authorization,
+        decodedData
       })
     })
 
@@ -55,6 +56,7 @@ export class Blockchain {
     First Receiver: ${action.firstReceiver.name}
     Sender: ${action.sender}
     Authorization: ${JSON.stringify(action.authorization)}
+    Data: ${JSON.stringify(action.decodedData)}
       `)
 
       action.receiver.vm.apply(action)

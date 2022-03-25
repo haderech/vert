@@ -165,6 +165,7 @@ class VM extends Vert {
         tableId: tab.id,
         primaryKey: 0n,
         secondaryKey: conv.from(secondary),
+        ignorePrimaryKey: true,
       });
       if (!obj) {
         return ei;
@@ -302,7 +303,7 @@ class VM extends Vert {
         return this.context.data.length;
       },
       require_auth: (_name: i64): void => {
-        log.debug('require_auth');
+        log.debug(`require_auth: ${bigIntToName(_name)}`);
 
         const [name] = convertToUnsigned(_name);
         let hasAuth = false;
@@ -319,7 +320,7 @@ class VM extends Vert {
         assert(hasAuth, `missing required authority ${bigIntToName(name)}`);
       },
       has_auth: (_name: i64): boolean => {
-        log.debug('has_auth');
+        log.debug(`has_auth: ${bigIntToName(_name)}`);
         const [name] = convertToUnsigned(_name);
         let hasAuth = false;
         for (const auth of this.context.authorization) {
@@ -524,7 +525,8 @@ class VM extends Vert {
 
       // db
       db_store_i64: (_scope: i64, _table: i64, _payer: i64, _id: i64, data: ptr, len: i32): i32 => {
-        log.debug('db_store_i64');
+        log.debug(`db_store_i64: Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | ID: ${_id}`);
+
         const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
 
         const tab = this.findOrCreateTable(this.context.receiver.name, bigIntToName(scope), bigIntToName(table), bigIntToName(payer));
@@ -545,7 +547,7 @@ class VM extends Vert {
         return this.kvCache.add(kv);
       },
       db_update_i64: (iterator: i32, _payer: i64, data: ptr, len: i32): void => {
-        log.debug('db_update_i64');
+        log.debug(`db_update_i64: Iterator ${iterator}`);
         const payer = BigInt.asUintN(64, _payer);
 
         const kvPrev = this.kvCache.get(iterator);
@@ -560,7 +562,7 @@ class VM extends Vert {
         this.kvCache.set(iterator, kv);
       },
       db_remove_i64: (iterator: i32): void => {
-        log.debug('db_remove_i64');
+        log.debug(`db_remove_i64: Iterator ${iterator}`);
         const kv = this.kvCache.get(iterator);
         const tab = this.kvCache.getTable(kv.tableId);
         assert(tab.code === this.context.receiver.toBigInt(), 'db access violation');
@@ -568,7 +570,7 @@ class VM extends Vert {
         this.kvCache.remove(iterator);
       },
       db_get_i64: (iterator: i32, data: ptr, len: i32): i32 => {
-        log.debug(`db_get_i64: ${iterator}`);
+        log.debug(`db_get_i64: Iterator ${iterator}`);
         const kv = this.kvCache.get(iterator);
         if (!len) {
           return kv.value.length;
@@ -578,7 +580,7 @@ class VM extends Vert {
         return size;
       },
       db_next_i64: (iterator: i32, primary: ptr): i32 => {
-        log.debug('db_next_i64');
+        log.debug(`db_next_i64: Iterator ${iterator}`);
         if (iterator < -1) return -1;
         const kv = this.kvCache.get(iterator);
         const kvNext = this.bc.store.getTableById(kv.tableId).next(kv.primaryKey);
@@ -589,7 +591,7 @@ class VM extends Vert {
         return this.kvCache.add(kvNext);
       },
       db_previous_i64: (iterator: i32, primary: ptr): i32 => {
-        log.debug('db_previous_i64');
+        log.debug(`db_previous_i64: Iterator ${iterator}`);
         if (iterator < -1) {
           const tab = this.kvCache.findTableByEndIterator(iterator);
           assert(tab, 'not a valid end iterator');
@@ -607,7 +609,7 @@ class VM extends Vert {
         return this.kvCache.add(kvPrev);
       },
       db_find_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
-        log.debug('db_find_i64');
+        log.debug(`db_find_i64: Contract ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | ID: ${_id}`);
         const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
 
         const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
@@ -618,7 +620,7 @@ class VM extends Vert {
         return this.kvCache.add(kv);
       },
       db_lowerbound_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
-        log.debug('db_lowerbound_i64');
+        log.debug(`db_lowerbound_i64: Contract ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | ID: ${_id}`);
         const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
 
         const tab = this.bc.store.findTable(code, scope, table);
@@ -633,7 +635,7 @@ class VM extends Vert {
         return this.kvCache.add(kv);
       },
       db_upperbound_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
-        log.debug('db_upperbound_i64');
+        log.debug(`db_upperbound_i64: Contract ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | ID: ${_id}`);
         const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
 
         const tab = this.bc.store.findTable(code, scope, table);
@@ -648,7 +650,7 @@ class VM extends Vert {
         return this.kvCache.add(kv);
       },
       db_end_i64: (_code: i64, _scope: i64, _table: i64): i32 => {
-        log.debug('db_end_i64');
+        log.debug(`db_end_i64: Contract ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)}`);
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
@@ -657,7 +659,8 @@ class VM extends Vert {
       },
       // uint64_t secondary index api
       db_idx64_store: (_scope: bigint, _table: bigint, _payer: bigint, _id: bigint, secondary: ptr): i32 => {
-        log.debug('db_idx64_store');
+        log.debug(`db_idx64_store: Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | Payer ${bigIntToName(_payer)} | ID ${_id}`);
+
         const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
 
         const itr = this.genericIndex.store(
@@ -739,7 +742,7 @@ class VM extends Vert {
         this.genericIndex.remove(this.bc.store.idx128, this.idx128, iterator);
       },
       db_idx128_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
-        log.debug('db_idx128_find_secondary');
+        log.debug('db_idx128_find_secondary: ', SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16)));
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
 
         return this.genericIndex.find_secondary(this.bc.store.idx128, this.idx128,
@@ -1267,6 +1270,7 @@ namespace VM {
     action: Name;
     data: Uint8Array;
     authorization: PermissionLevel[] = [];
+    decodedData: any
 
     constructor(init?: Partial<Context>) {
       Object.assign(this, init);
