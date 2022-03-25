@@ -303,9 +303,9 @@ class VM extends Vert {
         return this.context.data.length;
       },
       require_auth: (_name: i64): void => {
-        log.debug(`require_auth: ${bigIntToName(_name)}`);
-
         const [name] = convertToUnsigned(_name);
+        log.debug(`require_auth: ${bigIntToName(name)}`);
+
         let hasAuth = false;
         for (const auth of this.context.authorization) {
           if (nameToBigInt(auth.actor) === name) {
@@ -320,8 +320,9 @@ class VM extends Vert {
         assert(hasAuth, `missing required authority ${bigIntToName(name)}`);
       },
       has_auth: (_name: i64): boolean => {
-        log.debug(`has_auth: ${bigIntToName(_name)}`);
         const [name] = convertToUnsigned(_name);
+        log.debug(`has_auth: ${bigIntToName(name)}`);
+
         let hasAuth = false;
         for (const auth of this.context.authorization) {
           if (nameToBigInt(auth.actor) === name) {
@@ -335,8 +336,9 @@ class VM extends Vert {
         return hasAuth;
       },
       require_auth2: (_name: i64, _permission: i64): void => {
-        log.debug('require_auth2');
         const [name, permission] = convertToUnsigned(_name, _permission);
+        log.debug(`require_auth2: ${bigIntToName(name)}@${bigIntToName(permission)}`);
+
         let hasAuth = false;
         for (const auth of this.context.authorization) {
           if (nameToBigInt(auth.actor) === name) {
@@ -525,9 +527,8 @@ class VM extends Vert {
 
       // db
       db_store_i64: (_scope: i64, _table: i64, _payer: i64, _id: i64, data: ptr, len: i32): i32 => {
-        log.debug(`db_store_i64: Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | ID: ${_id}`);
-
         const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
+        log.debug(`db_store_i64: Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | ID: ${id}`);
 
         const tab = this.findOrCreateTable(this.context.receiver.name, bigIntToName(scope), bigIntToName(table), bigIntToName(payer));
         assert(payer !== 0n, 'must specify a valid account to pay for new record');
@@ -609,8 +610,8 @@ class VM extends Vert {
         return this.kvCache.add(kvPrev);
       },
       db_find_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
-        log.debug(`db_find_i64: Contract ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | ID: ${_id}`);
         const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
+        log.debug(`db_find_i64: Contract ${bigIntToName(code)} | Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | ID: ${id}`);
 
         const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
         if (!tab) return -1;
@@ -620,8 +621,8 @@ class VM extends Vert {
         return this.kvCache.add(kv);
       },
       db_lowerbound_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
-        log.debug(`db_lowerbound_i64: Contract ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | ID: ${_id}`);
         const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
+        log.debug(`db_lowerbound_i64: Contract ${bigIntToName(code)} | Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | ID: ${id}`);
 
         const tab = this.bc.store.findTable(code, scope, table);
         if (!tab) {
@@ -635,8 +636,8 @@ class VM extends Vert {
         return this.kvCache.add(kv);
       },
       db_upperbound_i64: (_code: i64, _scope: i64, _table: i64, _id: i64): i32 => {
-        log.debug(`db_upperbound_i64: Contract ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | ID: ${_id}`);
         const [code, scope, table, id] = convertToUnsigned(_code, _scope, _table, _id);
+        log.debug(`db_upperbound_i64: Contract ${bigIntToName(code)} | Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | ID: ${id}`);
 
         const tab = this.bc.store.findTable(code, scope, table);
         if (!tab) {
@@ -650,8 +651,8 @@ class VM extends Vert {
         return this.kvCache.add(kv);
       },
       db_end_i64: (_code: i64, _scope: i64, _table: i64): i32 => {
-        log.debug(`db_end_i64: Contract ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)}`);
         const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
+        log.debug(`db_end_i64: Contract ${bigIntToName(code)} | Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)}`);
 
         const tab = this.findTable(bigIntToName(code), bigIntToName(scope), bigIntToName(table));
         if (!tab) return -1;
@@ -659,9 +660,8 @@ class VM extends Vert {
       },
       // uint64_t secondary index api
       db_idx64_store: (_scope: bigint, _table: bigint, _payer: bigint, _id: bigint, secondary: ptr): i32 => {
-        log.debug(`db_idx64_store: Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | Payer ${bigIntToName(_payer)} | ID ${_id}`);
-
         const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
+        log.debug(`db_idx64_store: Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | Payer ${bigIntToName(payer)} | ID ${id}`);
 
         const itr = this.genericIndex.store(
           this.bc.store.idx64, this.idx64,
