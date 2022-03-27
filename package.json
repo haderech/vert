@@ -1,6 +1,6 @@
 {
   "name": "@jafri/vert",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "homepage": "https://github.com/haderech/vert",
   "description": "VM emulation RunTime for WASM-based blockchain contracts",
   "main": "dist/index.js",
@@ -43,6 +43,7 @@
     "@greymass/eosio": "^0.5.4",
     "bn.js": "^5.2.0",
     "brorand": "^1.1.0",
+    "cross-fetch": "^3.1.5",
     "elliptic": "^6.5.4",
     "hash.js": "^1.1.7",
     "loglevel": "^1.8.0",
