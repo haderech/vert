@@ -3,7 +3,7 @@ import Buffer from "../buffer";
 import { log, Vert } from "../vert";
 import { IndexObject, KeyValueObject, SecondaryKeyStore, Table } from "./table";
 import { IteratorCache } from "./iterator-cache";
-import { Action, Name, NameType, PermissionLevel, PublicKey, Serializer, Signature, UInt64 } from "@greymass/eosio";
+import { Action, Name, NameType, PermissionLevel, PublicKey, Serializer, Signature, Transaction, UInt64 } from "@greymass/eosio";
 import { sha256, sha512, sha1, ripemd160 } from "hash.js";
 import { bigIntToName, nameToBigInt, nameTypeToBigInt } from "./bn";
 import { Blockchain } from "./blockchain";
@@ -235,7 +235,7 @@ class VM extends Vert {
         publication_time: (): i64 => {
           log.debug('publication_time');
           // TODO
-          throw new Error('publication_time is not implemented')
+          throw new Error('publication_time is not implemented: Deferred TXs are deprecated')
           return 0n;
         },
         current_receiver: (): i64 => {
@@ -733,7 +733,8 @@ class VM extends Vert {
         check_transaction_authorization: (
           txData: ptr, txSize: i32,
           pubkeysData: ptr, pubkeysSize: i32,
-          permsData: ptr, permsSize: i32): i32 => {
+          permsData: ptr, permsSize: i32
+        ): i32 => {
           log.debug('check_transaction_authorization');
           // TODO
           throw new Error('check_transaction_authorization is not implemented')
@@ -743,7 +744,8 @@ class VM extends Vert {
           account: i64, permission: i64,
           pubkeysData: ptr, pubkeysSize: i32,
           permsData: ptr, permsSize: i32,
-          delayUs: i64): i32 => {
+          delayUs: i64
+        ): i32 => {
           log.debug('check_permission_authorization');
           // TODO
           throw new Error('check_permission_authorization is not implemented')
@@ -755,60 +757,76 @@ class VM extends Vert {
           throw new Error('get_permission_last_used is not implemented')
           return 0n;
         },
-        get_account_creation_time: (account: i64): i64 => {
+        get_account_creation_time: (_name: i64): i64 => {
           log.debug('get_account_creation_time');
-          // TODO
-          throw new Error('get_account_creation_time is not implemented')
-          return 0n;
+
+          const [name] = convertToUnsigned(_name);
+          const account = this.bc.getAccount(bigIntToName(name))
+          if (!account) {
+            throw new Error(`Account ${name} is missing for get_account_creation_time`)
+          }
+
+          return BigInt(account.creationTime.toMilliseconds()) * 1000n;
         },
   
         // print
         prints: (msg: i32): void => {
-          log.debug('prints');
-          this.bc.console += this.memory.readString(msg);
+          const str = this.memory.readString(msg)
+          log.debug('prints', str);
+          this.bc.console += str;
         },
         prints_l: (msg: i32, len: i32): void => {
-          log.debug('prints_l');
-          this.bc.console += this.memory.readString(msg, len);
+          const str = this.memory.readString(msg, len)
+          log.debug('prints_l', str);
+          this.bc.console += str;
         },
         printi: (value: i64): void => {
-          log.debug('printi');
-          this.bc.console += value.toString();
+          const str = value.toString()
+          log.debug('printi', str);
+          this.bc.console += str;
         },
         printui: (value: i64): void => {
-          log.debug('printui');
-          this.bc.console += BigInt.asUintN(64, value).toString();
+          const str = BigInt.asUintN(64, value).toString()
+          log.debug('printui', str);
+          this.bc.console += str;
         },
         printi128: (value: i32): void => {
-          log.debug('printi128');
-          this.bc.console += this.memory.readInt128(value).toString();
+          const str = this.memory.readInt128(value).toString()
+          log.debug('printi128', str);
+          this.bc.console += str;
         },
         printui128: (value: i32): void => {
-          log.debug('printui128');
-          this.bc.console += this.memory.readUInt128(value).toString();
+          const str = this.memory.readUInt128(value).toString()
+          log.debug('printui128', str);
+          this.bc.console += str;
         },
         printsf: (value: f32): void => {
-          log.debug('printsf');
           // TODO: print to fit precision
-          this.bc.console += value.toString();
+          const str = value.toString()
+          log.debug('printsf', str);
+          this.bc.console += str;
         },
         printdf: (value: f64): void => {
-          log.debug('printdf');
           // TODO: print to fit precision
-          this.bc.console += value.toString();
+          const str = value.toString()
+          log.debug('printsdf', str);
+          this.bc.console += str;
         },
         printqf: (value: i32): void => {
-          log.debug('printqf');
           // TODO: print to fit precision
-          this.bc.console += value.toString();
+          const str = value.toString()
+          log.debug('printsqf', str);
+          this.bc.console += str;
         },
         printn: (value: i64): void => {
-          log.debug('printn');
-          this.bc.console += bigIntToName(value).toString();
+          const str = bigIntToName(value).toString()
+          log.debug('printn', str);
+          this.bc.console += str;
         },
         printhex: (data: i32, len: i32): void => {
-          log.debug('printhex');
-          this.bc.console += this.memory.readHex(data, len);
+          const str = this.memory.readHex(data, len)
+          log.debug('printhex', str);
+          this.bc.console += str;
         },
   
         // TODO: privileged APIs
@@ -854,60 +872,73 @@ class VM extends Vert {
         send_deferred: (sender: ptr, payer: i64, tx: ptr, size: i32, replace: i32) => {
           log.debug('send_deferred');
           // TODO
-          throw new Error('send_deferred is not implemented')
+          throw new Error('send_deferred is not implemented: Deferred TXs are deprecated')
         },
         cancel_deferred: (sender: ptr): i32 => {
           log.debug('cancel_deferred');
           // TODO
-          throw new Error('cancel_deferred is not implemented')
+          throw new Error('cancel_deferred is not implemented: Deferred TXs are deprecated')
           return 0;
         },
-        read_transaction: (buffer: ptr, size: i32): i32 => {
-  
-          // bytes trx = context.get_packed_transaction();
-  
-          // auto s = trx.size();
-          // if( buffer_size == 0) return s;
-  
-          // auto copy_size = std::min( static_cast<size_t>(buffer_size), s );
-          // memcpy( data, trx.data(), copy_size );
-  
-          // return copy_size;
-  
+        read_transaction: (data: ptr, buffer_size: i32): i32 => {
           log.debug('read_transaction');
-          // TODO
-          throw new Error('read_transaction is not implemented')
-          return 0;
+
+          const trx = Serializer.encode({object: this.context.transaction}).array;
+  
+          const s = trx.length
+          if (buffer_size == 0) return s;
+
+          const copy_size = Math.min(buffer_size, s)
+          const destination = new Uint8Array(this.memory.buffer, data, copy_size);
+          destination.set(trx.slice(0, copy_size));
+
+          return copy_size
         },
         transaction_size: (): i32 => {
-          log.debug('transaction_size');
-          // TODO
-          throw new Error('transaction_size is not implemented')
-          return 0;
+          return Serializer.encode({object: this.context.transaction}).array.length
         },
         tapos_block_num: (): i32 => {
           log.debug('tapos_block_num');
-          // TODO
-          throw new Error('tapos_block_num is not implemented')
-          return 0;
+          return this.context.transaction.ref_block_num.toNumber()
         },
         tapos_block_prefix: (): i32 => {
           log.debug('tapos_block_prefix');
-          // TODO
-          throw new Error('tapos_block_prefix is not implemented')
-          return 0;
+          return this.context.transaction.ref_block_prefix.toNumber()
         },
         expiration: (): i32 => {
           log.debug('expiration');
-          // TODO
-          throw new Error('expiration is not implemented')
-          return 0;
+          return this.context.transaction.expiration.value.toNumber()
         },
-        get_action: (type: i32, index: i32, buffer: ptr, size: i32): i32 => {
+        get_action: (type: i32, index: i32, buffer: ptr, buffer_size: i32): i32 => {
           log.debug('get_action');
-          // TODO
-          throw new Error('get_action is not implemented')
-          return 0;
+
+          const trx = this.context.transaction
+          let action: Action
+
+          if (type == 0) {
+            if (index >= trx.context_free_actions.length) {
+              return -1
+            }
+            action = trx.context_free_actions[index]
+          }
+          else if (type == 1) {
+            if (index >= trx.actions.length) {
+              return -1
+            }
+            action = trx.actions[index]
+          }
+
+          if (!action) {
+            throw new Error('action is not found')
+          }
+
+          const packed = Serializer.encode({ object: action }).array
+          const ps = packed.length
+          if (ps <= buffer_size) {
+            const destination = new Uint8Array(this.memory.buffer, buffer, buffer_size);
+            destination.set(packed);
+          }
+          return ps
         },
         get_context_free_data: (index: i32, buffer: ptr, size: i32): i32 => {
           log.debug('get_context_free_data');
@@ -1272,7 +1303,8 @@ namespace VM {
     action: Name;
     data: Uint8Array;
     authorization: PermissionLevel[] = [];
-    decodedData: any
+    transaction: Transaction;
+    decodedData: Action
 
     constructor(init?: Partial<Context>) {
       Object.assign(this, init);

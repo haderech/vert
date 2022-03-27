@@ -1,6 +1,6 @@
 import { VM } from "./vm";
 import { TableView } from "./table";
-import { API, ABI, Name, NameType, PermissionLevel, PermissionLevelType, Serializer, Transaction, ABIDef } from "@greymass/eosio";
+import { API, ABI, Name, NameType, PermissionLevel, PermissionLevelType, Serializer, Transaction, ABIDef, TransactionHeader, TimePoint } from "@greymass/eosio";
 import { nameToBigInt } from "./bn";
 import { Blockchain } from "./blockchain";
 import { generatePermissions, addInlinePermission } from "./utils";
@@ -19,6 +19,9 @@ function isPromise(promise: any) {
 export class Account {
   readonly name: Name;
   readonly bc: Blockchain;
+  readonly creationTime: TimePoint
+
+
   readonly actions: any = {};
   readonly tables: { [key: string]: (scope?: bigint) => TableView } = {};
   readonly permissions: API.v1.AccountPermission[] = [];
@@ -30,6 +33,7 @@ export class Account {
   constructor (args: AccountArgs) {
     this.name = Name.from(args.name)
     this.bc = args.bc
+    this.creationTime = this.bc.timestamp
 
     // Permissions
     this.permissions = args.permissions || generatePermissions(this.name)
@@ -98,7 +102,7 @@ export class Account {
         }).array;
 
         return {
-          send: async (authorization?: PermissionLevelType) => {
+          send: async (authorization?: PermissionLevelType, options: Partial<TransactionHeader> = {}) => {
             await this.bc.applyTransaction(Transaction.from({
               actions: [{
                 account: this.name,
@@ -112,6 +116,7 @@ export class Account {
               expiration: 0,
               ref_block_num: 0,
               ref_block_prefix: 0,
+              ...options
             }), data)
           }
         }

@@ -1,6 +1,5 @@
 import { Account, Blockchain } from "../eos"
 import { expect } from "chai";
-import { createContract } from "./createContract";
 
 export interface Fixtures {
     contracts: {
@@ -33,7 +32,7 @@ export const processFixtures = (fixture: Fixtures) => {
 
     const accounts: { [key: string]: Account } = {}
     for (const contract of fixture.contracts) {
-        accounts[contract.name.toString()] = createContract(blockchain, contract.name, contract.path, contract.sendsInline)
+        accounts[contract.name.toString()] = blockchain.createContract(contract.name, contract.path, contract.sendsInline)
     }
     for (const account of fixture.accounts) {
         accounts[account] = blockchain.createAccount(account)
