@@ -23,25 +23,15 @@ class Vert {
     return this._memory;
   }
 
-  constructor(bytes: Uint8Array | ReadableStream) {
-    let instantiate;
-    if (bytes instanceof Uint8Array) {
-      instantiate = WebAssembly.instantiate;
-    } else {
-      instantiate = WebAssembly.instantiateStreaming;
+  constructor(imports: any, bytes: Uint8Array | Promise<Uint8Array>) {
+    const getReady = async () => {
+      bytes = await Promise.resolve(bytes)
+      const { module, instance } = await WebAssembly.instantiate(bytes, imports)
+      this.module = module;
+      this.instance = instance;
+      this._memory = new Memory(this.instance.exports.memory as WebAssembly.Memory);
     }
-    this.ready = new Promise((resolve) => {
-      // HACK: Use setTimeout to access derived class imports in base class constructor
-      setTimeout(() => {
-        instantiate(bytes, this.imports)
-          .then(result => {
-            this.module = result.module;
-            this.instance = result.instance;
-            this._memory = new Memory(this.instance.exports.memory as WebAssembly.Memory);
-            resolve();
-        });
-      });
-    });
+    this.ready = getReady();
   }
 }
 

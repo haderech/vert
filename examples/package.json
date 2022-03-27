@@ -4,24 +4,27 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
+    "build:inline": "blanc++ ./inline/notified1.cpp -o ./inline/notified1.wasm && blanc++ ./inline/notified2.cpp -o ./inline/notified2.wasm && blanc++ ./inline/notified3.cpp -o ./inline/notified3.wasm && blanc++ ./inline/notified4.cpp -o ./inline/notified4.wasm && blanc++ ./inline/receiver.cpp -o ./inline/receiver.wasm && blanc++ ./inline/sender.cpp -o ./inline/sender.wasm",
     "build:foo": "blanc++ ./foo/foo.cpp -o ./foo/foo.wasm",
-    "build:inline": "blanc++ ./inline/inline.cpp -o ./inline/inline.wasm",
     "build:timer": "blanc++ ./timer/timer.cpp -o ./timer/timer.wasm",
     "build:fixtures": "blanc++ ./fixtures/fixtures.cpp -o ./fixtures/fixtures.wasm",
+    "build": "run-p build:*",
     "test:foo": "mocha ./foo/foo.spec.ts -r ts-node/register",
     "test:inline": "mocha ./inline/inline.spec.ts -r ts-node/register",
     "test:timer": "mocha ./timer/timer.spec.ts -r ts-node/register",
     "test:fixtures": "mocha ./fixtures/fixtures.spec.ts -r ts-node/register",
-    "test": "mocha ./**/*.spec.ts -r ts-node/register"
+    "test": "run-p test:*"
   },
   "author": "Jeeyong Um <conr2d@gmail.com>",
   "license": "MIT",
-  "dependencies": {},
+  "dependencies": {
+    "npm-run-all": "^4.1.5"
+  },
   "devDependencies": {
     "@haderech/vert": "*",
     "chai": "*",
     "mocha": "*",
-    "typescript": "*",
-    "ts-node": "*"
+    "ts-node": "*",
+    "typescript": "*"
   }
 }

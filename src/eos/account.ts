@@ -5,48 +5,51 @@ import { nameToBigInt } from "./bn";
 import { Blockchain } from "./blockchain";
 import { generatePermissions, addInlinePermission } from "./utils";
 
-export type AccountArgs = Omit<Partial<Account>, 'name'|'abi'> & {
+export type AccountArgs = Omit<Partial<Account>, 'name'|'abi'|'wasm'> & {
   name: NameType,
-  abi?: ABIDef;
+  abi?: ABIDef | Promise<ABIDef>;
+  wasm?: Uint8Array | Promise<Uint8Array>;
   sendsInline?: boolean;
+}
+
+function isPromise(promise: any) {  
+  return !!promise && typeof promise.then === 'function'
 }
 
 export class Account {
   readonly name: Name;
   readonly bc: Blockchain;
-  readonly abi?: ABI;
-  readonly wasm?: Uint8Array | ReadableStream;
   readonly actions: any = {};
   readonly tables: { [key: string]: (scope?: bigint) => TableView } = {};
-  public permissions: API.v1.AccountPermission[];
+  readonly permissions: API.v1.AccountPermission[] = [];
+
+  public wasm?: Uint8Array;
+  public abi?: ABI;
   public vm?: VM;
 
   constructor (args: AccountArgs) {
-    args.name = Name.from(args.name)
+    this.name = Name.from(args.name)
+    this.bc = args.bc
 
-    if (args.abi) {
-      args.abi = ABI.from(args.abi)
-    }
-
-    if (!args.permissions) {
-      args.permissions = generatePermissions(args.name)
-    }
-
+    // Permissions
+    this.permissions = args.permissions || generatePermissions(this.name)
     if (args.sendsInline) {
-      addInlinePermission(args.name, args.permissions)
+      addInlinePermission(this.name, this.permissions)
     }
 
-    Object.assign(this, args)
-
-    // If contract
-    if (this.isContract) {
-      this.buildActions()
-      this.buildTables()
+    if (args.abi && args.wasm) {
+      if (isPromise(args.abi) || isPromise(args.wasm)) {
+        Promise
+          .all([args.abi, args.wasm])
+          .then(([abi, wasm]) => this.setContract(abi, wasm))
+      } else {
+        this.setContract(args.abi as ABIDef, args.wasm as Uint8Array)
+      }
     }
   }
 
   get isContract () {
-    return !!this.abi
+    return !!this.abi && !!this.wasm
   }
 
   toBigInt () {
@@ -58,6 +61,13 @@ export class Account {
       this.vm = VM.from(this.wasm, this.bc);
       await this.vm.ready
     }
+  }
+
+  setContract (abi: ABIDef, wasm: Uint8Array) {
+    this.abi = ABI.from(abi)
+    this.wasm = wasm
+    this.buildActions()
+    this.buildTables()
   }
 
   buildActions () {
