@@ -1,6 +1,6 @@
 {
   "name": "@jafri/vert",
-  "version": "0.1.31",
+  "version": "0.1.32",
   "homepage": "https://github.com/haderech/vert",
   "description": "VM emulation RunTime for WASM-based blockchain contracts",
   "main": "dist/index.js",
@@ -10,7 +10,7 @@
     "src"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc",
+    "build": "rm -rf dist && tsc && node bundle.js",
     "build-web": "webpack",
     "lint": "eslint -c .eslintrc.js --ext .ts src/",
     "start": "node dist/index",
@@ -28,6 +28,7 @@
     "@typescript-eslint/parser": "^5.12.1",
     "chai": "^4.3.6",
     "clean-webpack-plugin": "^4.0.0",
+    "esbuild": "^0.14.28",
     "eslint": "^8.9.0",
     "eslint-config-prettier": "^8.4.0",
     "eslint-plugin-jsdoc": "^37.9.4",
