@@ -1,6 +1,6 @@
 {
   "name": "@jafri/vert",
-  "version": "0.1.36",
+  "version": "0.1.37",
   "homepage": "https://github.com/haderech/vert",
   "description": "VM emulation RunTime for WASM-based blockchain contracts",
   "main": "dist/index.js",
@@ -15,7 +15,7 @@
     "lint": "eslint -c .eslintrc.js --ext .ts src/",
     "start": "node dist/index",
     "test": "mocha src/**/*.spec.ts -r ts-node/register && yarn --cwd examples test",
-    "prepublish": "npm run build"
+    "prepublish": "npm run test && npm run build"
   },
   "author": "Jeeyong Um <conr2d@gmail.com>",
   "license": "MIT",
