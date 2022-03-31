@@ -839,15 +839,21 @@ class VM extends Vert {
         // system
         eosio_assert: (test: i32, msg: ptr): void => {
           log.debug('eosio_assert');
-          assert(test, eosio_assert(this.memory.readString(msg)));
+          if (!test) {
+            throw new Error(eosio_assert(this.memory.readString(msg)))
+          }
         },
         eosio_assert_message: (test: i32, msg: ptr, msg_len: i32): void => {
           log.debug('eosio_assert_message');
-          assert(test, eosio_assert_message(this.memory.readString(msg, msg_len)));
+          if (!test) {
+            throw new Error(eosio_assert_message(this.memory.readString(msg, msg_len)))
+          }
         },
         eosio_assert_code: (test: i32, code: i64): void => {
           log.debug('eosio_assert_code');
-          assert(test, eosio_assert_code(BigInt.asUintN(64, code)));
+          if (!test) {
+            throw new Error(eosio_assert_message(eosio_assert_code(BigInt.asUintN(64, code))))
+          }
         },
         eosio_exit: (code: i32): void => {
           log.debug('eosio_exit');
