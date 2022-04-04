@@ -5,6 +5,7 @@ import { VM } from "./vm";
 import log from "loglevel";
 import * as fs from "fs";
 import fetch from "cross-fetch"
+import colors from "colors/safe"
 
 export class Blockchain {
   accounts: { [key: string]: Account }
@@ -50,17 +51,17 @@ export class Blockchain {
     while(this.actionsQueue.length) {
       const action = this.actionsQueue.shift()
 
-      log.debug(`
+      log.debug(colors.green(`
         \nSTART ACTION
-    Inline: ${action.isInline}
-    Notification: ${action.isNotification}
     Contract: ${action.receiver.name}
     Action: ${action.action}
+    Inline: ${action.isInline}
+    Notification: ${action.isNotification}
     First Receiver: ${action.firstReceiver.name}
     Sender: ${action.sender}
     Authorization: ${JSON.stringify(action.authorization)}
     Data: ${JSON.stringify(action.decodedData)}
-      `)
+      `))
 
       action.receiver.vm.apply(action)
     }

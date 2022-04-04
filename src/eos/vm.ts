@@ -14,6 +14,7 @@ import { findLastIndex, isAuthoritySatisfied } from "./utils";
 type ptr = number;
 type i32 = number;
 type i64 = bigint;
+type i128 = bigint;
 type f32 = number;
 type f64 = number;
 
@@ -40,6 +41,18 @@ const SecondaryKeyConverter = {
       buffer.writeBigUInt64LE(value >> 64n, 8);
     },
   },
+  int128: {
+    from: (buffer: Buffer) => {
+      const low = buffer.readBigUInt64LE(0);
+      const high = buffer.readBigUInt64LE(8);
+      const int = (high << 64n) | low;
+      return BigInt.asIntN(128, int);
+    },
+    to: (buffer: Buffer, value: bigint) => {
+      buffer.writeBigUInt64LE(value, 0);
+      buffer.writeBigUInt64LE(value >> 64n, 8);
+    },
+  },
   checksum256: {
     from: (buffer: Buffer) => {
       const low = (buffer as Uint8Array).slice(0, 16);
@@ -57,6 +70,7 @@ const SecondaryKeyConverter = {
     to: (buffer: Buffer, value: number) => buffer.writeDoubleLE(value),
   },
   /*
+  TODO
   LongDouble: {
   },
   */
@@ -205,7 +219,7 @@ class VM extends Vert {
             data: inlineBuffer,
             type: Action,
           })
-  
+
           log.debug(`-> Current: ${this.context.receiver.name}::${this.context.action}`);
           log.debug(`-> Inline Action: ${decodedAction.account}::${decodedAction.name}`);
           log.debug(`-> Authority: ${decodedAction.authorization}`);
@@ -216,6 +230,7 @@ class VM extends Vert {
           if (!contract || !contract.isContract) {
             throw new Error(`Contract ${decodedAction.account} is missing for inline action`)
           }
+
   
           const context = new VM.Context({
             sender: this.context.receiver.name,
@@ -223,6 +238,7 @@ class VM extends Vert {
             firstReceiver: contract,
             action: decodedAction.name,
             data: decodedAction.data.array.slice(),
+            decodedData: decodedAction.decodeData(contract.abi) as any,
             authorization: decodedAction.authorization
           })
           this.bc.actionsQueue.push(context)
@@ -838,19 +854,19 @@ class VM extends Vert {
   
         // system
         eosio_assert: (test: i32, msg: ptr): void => {
-          log.debug('eosio_assert');
+          // log.debug('eosio_assert');
           if (!test) {
             throw new Error(eosio_assert(this.memory.readString(msg)))
           }
         },
         eosio_assert_message: (test: i32, msg: ptr, msg_len: i32): void => {
-          log.debug('eosio_assert_message');
+          // log.debug('eosio_assert_message');
           if (!test) {
             throw new Error(eosio_assert_message(this.memory.readString(msg, msg_len)))
           }
         },
         eosio_assert_code: (test: i32, code: i64): void => {
-          log.debug('eosio_assert_code');
+          // log.debug('eosio_assert_code');
           if (!test) {
             throw new Error(eosio_assert_message(eosio_assert_code(BigInt.asUintN(64, code))))
           }
@@ -959,21 +975,21 @@ class VM extends Vert {
           throw new Error('abort');
         },
         memmove: (dest: ptr, src: ptr, count: i32): ptr => {
-          log.debug('memmove');
+          // log.debug('memmove');
           const destination = new Uint8Array(this.memory.buffer, dest, count);
           const source = new Uint8Array(this.memory.buffer, src, count);
           destination.set(source);
           return dest;
         },
         memset: (dest: ptr, ch: i32, count: i32): ptr => {
-          log.debug('memset');
+          // log.debug('memset');
           const destination = new Uint8Array(this.memory.buffer, dest, count);
           const source = Buffer.alloc(count, ch);
           destination.set(source);
           return dest;
         },
         memcpy: (dest: ptr, src: ptr, count: i32): ptr => {
-          log.debug('memcpy');
+          // log.debug('memcpy');
           // HACK: imitate copying to overlapped destination
           if ((dest - src) < count && (dest - src) >= 0) {
             const cpy = (d, s, c) => {
@@ -996,49 +1012,129 @@ class VM extends Vert {
         },
   
         // TODO: compiler-rt APIs
-        __ashlti3: () => {},
-        __ashrti3: () => {},
-        __lshlti3: () => {},
-        __lshrti3: () => {},
-        __divti3: () => {},
-        __udivti3: () => {},
-        __multi3: () => {},
-        __modti3: () => {},
-        __umodti3: () => {},
-        __addtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => {},
-        __subtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => {},
-        __multf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => {},
-        __divtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => {},
-        __negtf2: () => {},
-        __extendsftf2: (a: ptr, b: f32): void => {},
-        __extenddftf2: (a: ptr, b: f64): void => {},
-        __trunctfdf2: (a: i64, b: i64): f64 => { return 0.0; },
-        __trunctfsf2: (a: i64, b: i64): f32 => { return 0.0; },
-        __fixtfsi: () => {},
-        __fixtfdi: () => {},
-        __fixtfti: () => {},
-        __fixunstfsi: () => {},
-        __fixunstfdi: () => {},
-        __fixunstfti: () => {},
-        __fixsfti: () => {},
-        __fixdfti: () => {},
-        __fixunssfti: () => {},
-        __fixunsdfti: () => {},
-        __floatsidf: () => {},
-        __floatsitf: (a: ptr, b: i32): void => {},
-        __floatditf: () => {},
-        __floatunsitf: (a: ptr, b: i32): void => {},
-        __floatunditf: () => {},
-        __floattidf: () => {},
-        __floatuntidf: () => {},
-        __cmptf2: () => {},
+        __ashlti3: () => { throw new Error("Not implemented _ashlti3") },
+        __ashrti3: () => { throw new Error("Not implemented _ashrti3") },
+        __lshlti3: () => { throw new Error("Not implemented _lshlti3") },
+        __lshrti3: () => { throw new Error("Not implemented _lshrti3") },
+        __divti3: (ret: ptr, _la: i64, _ha: i64, _lb: i64, _hb: i64): void => { 
+          const [la, ha, lb, hb] = convertToUnsigned(_la, _ha, _lb, _hb);
+
+          let lhs: i128 = BigInt(ha)
+          let rhs: i128 = BigInt(hb)
+
+          lhs = BigInt.asUintN(128, lhs << BigInt(64));
+          lhs = BigInt.asUintN(128, lhs | la);
+         
+          rhs = BigInt.asUintN(128, rhs << BigInt(64));
+          rhs = BigInt.asUintN(128, rhs | lb);
+         
+          lhs = BigInt.asUintN(128, lhs / rhs);
+
+          const retBuffer = Buffer.from_(this.memory.buffer, ret, 16)
+          SecondaryKeyConverter.int128.to(retBuffer, lhs)
+        },
+        __udivti3: (ret: ptr, _la: i64, _ha: i64, _lb: i64, _hb: i64): void => { 
+          const [la, ha, lb, hb] = convertToUnsigned(_la, _ha, _lb, _hb);
+
+          let lhs: i128 = BigInt(ha)
+          let rhs: i128 = BigInt(hb)
+
+          lhs = BigInt.asUintN(128, lhs << BigInt(64));
+          lhs = BigInt.asUintN(128, lhs | la);
+         
+          rhs = BigInt.asUintN(128, rhs << BigInt(64));
+          rhs = BigInt.asUintN(128, rhs | lb);
+         
+          lhs = BigInt.asUintN(128, lhs / rhs);
+
+          const retBuffer = Buffer.from_(this.memory.buffer, ret, 16)
+          SecondaryKeyConverter.uint128.to(retBuffer, lhs)
+        },
+        __multi3: (ret: ptr, _la: i64, _ha: i64, _lb: i64, _hb: i64): void => { 
+          const [la, ha, lb, hb] = convertToUnsigned(_la, _ha, _lb, _hb);
+
+          let lhs: i128 = BigInt(ha)
+          let rhs: i128 = BigInt(hb)
+
+          lhs = BigInt.asUintN(128, lhs << BigInt(64));
+          lhs = BigInt.asUintN(128, lhs | la);
+         
+          rhs = BigInt.asUintN(128, rhs << BigInt(64));
+          rhs = BigInt.asUintN(128, rhs | lb);
+         
+          lhs = BigInt.asUintN(128, lhs * rhs);
+
+          const retBuffer = Buffer.from_(this.memory.buffer, ret, 16)
+          SecondaryKeyConverter.int128.to(retBuffer, lhs)
+        },
+        __modti3: (ret: ptr, _la: i64, _ha: i64, _lb: i64, _hb: i64) => {
+          const [la, ha, lb, hb] = convertToUnsigned(_la, _ha, _lb, _hb);
+
+          let lhs: i128 = BigInt(ha)
+          let rhs: i128 = BigInt(hb)
+
+          lhs = BigInt.asUintN(128, lhs << BigInt(64));
+          lhs = BigInt.asUintN(128, lhs | la);
+         
+          rhs = BigInt.asUintN(128, rhs << BigInt(64));
+          rhs = BigInt.asUintN(128, rhs | lb);
+         
+          lhs = BigInt.asUintN(128, lhs % rhs);
+
+          const retBuffer = Buffer.from_(this.memory.buffer, ret, 16)
+          SecondaryKeyConverter.int128.to(retBuffer, lhs)
+         },
+        __umodti3: (ret: ptr, _la: i64, _ha: i64, _lb: i64, _hb: i64) => {
+          const [la, ha, lb, hb] = convertToUnsigned(_la, _ha, _lb, _hb);
+
+          let lhs: i128 = BigInt(ha)
+          let rhs: i128 = BigInt(hb)
+
+          lhs = BigInt.asUintN(128, lhs << BigInt(64));
+          lhs = BigInt.asUintN(128, lhs | la);
+         
+          rhs = BigInt.asUintN(128, rhs << BigInt(64));
+          rhs = BigInt.asUintN(128, rhs | lb);
+         
+          lhs = BigInt.asUintN(128, lhs % rhs);
+
+          const retBuffer = Buffer.from_(this.memory.buffer, ret, 16)
+          SecondaryKeyConverter.uint128.to(retBuffer, lhs)
+         },
+        __addtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => { throw new Error("Not implemented _addtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64)") },
+        __subtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => { throw new Error("Not implemented _subtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64)") },
+        __multf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => { throw new Error("Not implemented _multf3: (a: ptr, b: i64, c: i64, d: i64, e: i64)") },
+        __divtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64): void => { throw new Error("Not implemented _divtf3: (a: ptr, b: i64, c: i64, d: i64, e: i64)") },
+        __negtf2: () => { throw new Error("Not implemented _negtf2") },
+        __extendsftf2: (a: ptr, b: f32): void => { throw new Error("Not implemented _extendsftf2: (a: ptr, b: f32)") },
+        __extenddftf2: (a: ptr, b: f64): void => { throw new Error("Not implemented _extenddftf2: (a: ptr, b: f64)") },
+        __trunctfdf2: (a: i64, b: i64): f64 => { throw new Error("Not implemented __trunctfdf2"); return 0.0; },
+        __trunctfsf2: (a: i64, b: i64): f32 => { throw new Error("Not implemented __trunctfsf2"); return 0.0; },
+        __fixtfsi: () => { throw new Error("Not implemented _fixtfsi") },
+        __fixtfdi: () => { throw new Error("Not implemented _fixtfdi") },
+        __fixtfti: () => { throw new Error("Not implemented _fixtfti") },
+        __fixunstfsi: () => { throw new Error("Not implemented _fixunstfsi") },
+        __fixunstfdi: () => { throw new Error("Not implemented _fixunstfdi") },
+        __fixunstfti: () => { throw new Error("Not implemented _fixunstfti") },
+        __fixsfti: () => { throw new Error("Not implemented _fixsfti") },
+        __fixdfti: () => { throw new Error("Not implemented _fixdfti") },
+        __fixunssfti: () => { throw new Error("Not implemented _fixunssfti") },
+        __fixunsdfti: () => { throw new Error("Not implemented _fixunsdfti") },
+        __floatsidf: () => { throw new Error("Not implemented _floatsidf") },
+        __floatsitf: (a: ptr, b: i32): void => { throw new Error("Not implemented _floatsitf: (a: ptr, b: i32)") },
+        __floatditf: () => { throw new Error("Not implemented _floatditf") },
+        __floatunsitf: (a: ptr, b: i32): void => { throw new Error("Not implemented _floatunsitf: (a: ptr, b: i32)") },
+        __floatunditf: () => { throw new Error("Not implemented _floatunditf") },
+        __floattidf: () => { throw new Error("Not implemented _floattidf") },
+        __floatuntidf: () => { throw new Error("Not implemented _floatuntidf") },
+        __cmptf2: () => { throw new Error("Not implemented _cmptf2") },
         __eqtf2: (a: i64, b: i64, c: i64, d: i64): i32 => { return 0; },
         __netf2: (a: i64, b: i64, c: i64, d: i64): i32 => { return 0; },
         __getf2: (a: i64, b: i64, c: i64, d: i64): i32 => { return 0; },
-        __gttf2: () => {},
+        __gttf2: () => { throw new Error("Not implemented _gttf2") },
         __letf2: (a: i64, b: i64, c: i64, d: i64): i32 => { return 0; },
-        __lttf2: () => {},
-        __unordtf2: () => {},
+        __lttf2: () => { throw new Error("Not implemented _lttf2") },
+        __unordtf2: () => { throw new Error("Not implemented _unordtf2") },
       },
     };
 
