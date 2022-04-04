@@ -1,6 +1,6 @@
 {
   "name": "@jafri/vert",
-  "version": "0.1.45",
+  "version": "0.1.46",
   "homepage": "https://github.com/haderech/vert",
   "description": "VM emulation RunTime for WASM-based blockchain contracts",
   "main": "dist/index.js",
@@ -48,7 +48,7 @@
     "webpack-cli": "^4.9.2"
   },
   "dependencies": {
-    "@greymass/eosio": "^0.5.4",
+    "@greymass/eosio": "^0.5.5",
     "bn.js": "^5.2.0",
     "brorand": "^1.1.0",
     "colors": "^1.4.0",
