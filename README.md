@@ -19,7 +19,7 @@ The focus of VeRT is on the better compatibility than the performance, so it can
 ## Installation
 
 ```shell
-npm install vert
+npm install @proton/vert
 ```
 
 ## Test
