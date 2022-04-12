@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import { expect } from "chai";
 import { Name, Int64 } from "@greymass/eosio"
-import { Blockchain, nameToBigInt } from "../../dist";
+import { Blockchain, nameToBigInt, proton_assert } from "../../dist";
 
 const blockchain = new Blockchain()
 
@@ -34,7 +34,7 @@ describe('foo_test', () => {
       // try storing a negative value
       await foo.actions.store(['alice', -1]).send('alice@active');
     } catch (e) {
-      expect(e.message).to.equal('eosio_assert: require non-negative value');
+      expect(e.message).to.equal(proton_assert('require non-negative value'));
     }
   });
 

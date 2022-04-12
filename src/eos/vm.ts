@@ -8,7 +8,7 @@ import { sha256, sha512, sha1, ripemd160 } from "hash.js";
 import { bigIntToName, nameToBigInt, nameTypeToBigInt } from "./bn";
 import { Blockchain } from "./blockchain";
 import { Account } from "./account";
-import { eosio_assert, eosio_assert_message, eosio_assert_code } from "./errors";
+import { proton_assert, proton_assert_message, proton_assert_code } from "./errors";
 import { findLastIndex, isAuthoritySatisfied } from "./utils";
 
 type ptr = number;
@@ -856,19 +856,19 @@ class VM extends Vert {
         eosio_assert: (test: i32, msg: ptr): void => {
           // log.debug('eosio_assert');
           if (!test) {
-            throw new Error(eosio_assert(this.memory.readString(msg)))
+            throw new Error(proton_assert(this.memory.readString(msg)))
           }
         },
         eosio_assert_message: (test: i32, msg: ptr, msg_len: i32): void => {
           // log.debug('eosio_assert_message');
           if (!test) {
-            throw new Error(eosio_assert_message(this.memory.readString(msg, msg_len)))
+            throw new Error(proton_assert_message(this.memory.readString(msg, msg_len)))
           }
         },
         eosio_assert_code: (test: i32, code: i64): void => {
           // log.debug('eosio_assert_code');
           if (!test) {
-            throw new Error(eosio_assert_message(eosio_assert_code(BigInt.asUintN(64, code))))
+            throw new Error(proton_assert_message(proton_assert_code(BigInt.asUintN(64, code))))
           }
         },
         eosio_exit: (code: i32): void => {
