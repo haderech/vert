@@ -3,7 +3,7 @@ import { expect } from "chai";
 import { Asset, Name } from "@greymass/eosio";
 import { Blockchain } from "../blockchain";
 import { nameToBigInt, symbolCodeToBigInt } from "../bn";
-import { proton_assert } from "../errors";
+import { protonAssert } from "../errors";
 
 /**
  * Initialize
@@ -63,7 +63,7 @@ describe('eos-vm', () => {
       try {
         await eosioToken.actions.create(['alice', '-1000.000 TKN']).send();
       } catch (e) {
-        expect(e.message).to.equal(proton_assert('max-supply must be positive'));
+        expect(e.message).to.equal(protonAssert('max-supply must be positive'));
       }
     });
 
@@ -75,7 +75,7 @@ describe('eos-vm', () => {
       try {
         await action.send();
       } catch (e) {
-        expect(e.message).to.equal(proton_assert('token with symbol already exists'));
+        expect(e.message).to.equal(protonAssert('token with symbol already exists'));
       }
     });
 
@@ -88,7 +88,7 @@ describe('eos-vm', () => {
       try {
         await eosioToken.actions.create(['alice', '4611686018427387904 NKT']).send();
       } catch (e) {
-        expect(e.message).to.equal(proton_assert('invalid supply'));
+        expect(e.message).to.equal(protonAssert('invalid supply'));
       }
     });
 
@@ -118,13 +118,13 @@ describe('eos-vm', () => {
       try {
         await eosioToken.actions.issue(['alice', '500.001 TKN', 'hola']).send('alice@active');
       } catch (e) {
-        expect(e.message).to.equal(proton_assert('quantity exceeds available supply'));
+        expect(e.message).to.equal(protonAssert('quantity exceeds available supply'));
       }
 
       try {
         await eosioToken.actions.issue(['alice', '-1.000 TKN', 'hola']).send('alice@active');
       } catch (e) {
-        expect(e.message).to.equal(proton_assert('must issue positive quantity'));
+        expect(e.message).to.equal(protonAssert('must issue positive quantity'));
       }
 
       // Check whether action succeeds without exceptions
@@ -146,13 +146,13 @@ describe('eos-vm', () => {
       try {
         await eosioToken.actions.transfer(['alice', 'bob', '701 CERO', 'hola']).send('alice@active');
       } catch (e) {
-        expect(e.message).to.equal(proton_assert('overdrawn balance'));
+        expect(e.message).to.equal(protonAssert('overdrawn balance'));
       }
 
       try {
         await eosioToken.actions.transfer(['alice', 'bob', '-1000 CERO', 'hola']).send('alice@active');
       } catch (e) {
-        expect(e.message).to.equal(proton_assert('must transfer positive quantity'));
+        expect(e.message).to.equal(protonAssert('must transfer positive quantity'));
       }
     });
   });
