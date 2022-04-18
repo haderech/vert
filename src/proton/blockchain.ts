@@ -7,12 +7,26 @@ import * as fs from "fs";
 import fetch from "cross-fetch"
 import colors from "colors/safe"
 
+const logAction = (action: VM.Context) => {
+  log.debug(colors.green(`
+  \nSTART ACTION
+Contract: ${action.receiver.name}
+Action: ${action.action}
+Inline: ${action.isInline}
+Notification: ${action.isNotification}
+First Receiver: ${action.firstReceiver.name}
+Sender: ${action.sender}
+Authorization: ${JSON.stringify(action.authorization)}
+Data: ${JSON.stringify(action.decodedData)}
+`))
+}
+
 export class Blockchain {
   accounts: { [key: string]: Account }
   timestamp: TimePoint
   store: TableStore
   console: string = ''
-  actionsQueue: VM.Context[] = []
+  notificationsQueue: VM.Context[] = []
 
   constructor ({
     accounts,
@@ -31,13 +45,13 @@ export class Blockchain {
   public async applyTransaction (transaction: Transaction, decodedData?: any) {
     await this.resetTransaction()
 
-    this.actionsQueue = transaction.actions.map(action => {
+    for (const action of transaction.actions) {
       const contract = this.getAccount(action.account)
       if (!contract || !contract.isContract) {
         throw new Error(`Contract ${action.account} missing for inline action`)
       }
 
-      return new VM.Context({
+      let context = new VM.Context({
         receiver: contract,
         firstReceiver: contract,
         action: action.name,
@@ -46,24 +60,21 @@ export class Blockchain {
         transaction,
         decodedData
       })
-    })
 
-    while(this.actionsQueue.length) {
-      const action = this.actionsQueue.shift()
+      let actionsQueue = [context]
 
-      log.debug(colors.green(`
-        \nSTART ACTION
-    Contract: ${action.receiver.name}
-    Action: ${action.action}
-    Inline: ${action.isInline}
-    Notification: ${action.isNotification}
-    First Receiver: ${action.firstReceiver.name}
-    Sender: ${action.sender}
-    Authorization: ${JSON.stringify(action.authorization)}
-    Data: ${JSON.stringify(action.decodedData)}
-      `))
+      while(actionsQueue.length || this.notificationsQueue.length) {
+        context = this.notificationsQueue.shift() || actionsQueue.shift()
+      
+        logAction(context)
+        context.receiver.vm.apply(context)
 
-      action.receiver.vm.apply(action)
+        if (context.isNotification) {
+          actionsQueue = actionsQueue.concat(context.actionsQueue)
+        } else {
+          actionsQueue = context.actionsQueue.concat(actionsQueue)
+        }
+      }
     }
   }
 

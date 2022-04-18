@@ -1,4 +1,4 @@
-import { Account, Blockchain } from "../eos"
+import { Account, Blockchain } from "../proton"
 import { expect } from "chai";
 
 export interface Fixtures {

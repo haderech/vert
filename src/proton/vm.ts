@@ -91,6 +91,7 @@ class VM extends Vert {
   private idx128 = new IteratorCache<IndexObject<bigint>>();
   private idx256 = new IteratorCache<IndexObject<Buffer>>();
   private idxDouble = new IteratorCache<IndexObject<number>>();
+
   // private idxLongDouble;
   private snapshot: number = 0;
   private bc: Blockchain
@@ -202,12 +203,7 @@ class VM extends Vert {
               authorization: []
             })
   
-            const lastReceiptIndex = findLastIndex(this.bc.actionsQueue, action => !action.receiver.name.equals(action.firstReceiver.name))
-            if (lastReceiptIndex == -1) {
-              this.bc.actionsQueue.unshift(context)
-            } else {
-              this.bc.actionsQueue.splice(lastReceiptIndex + 1, 0, context)
-            }
+            this.bc.notificationsQueue.push(context)
           }
         },
   
@@ -230,7 +226,6 @@ class VM extends Vert {
           if (!contract || !contract.isContract) {
             throw new Error(`Contract ${decodedAction.account} is missing for inline action`)
           }
-
   
           const context = new VM.Context({
             sender: this.context.receiver.name,
@@ -241,7 +236,7 @@ class VM extends Vert {
             decodedData: decodedAction.decodeData(contract.abi) as any,
             authorization: decodedAction.authorization
           })
-          this.bc.actionsQueue.push(context)
+          this.context.actionsQueue.push(context)
         },
         send_context_free_inline: (action: ptr, size: i32): void => {
           log.debug('send_context_free_inline');
@@ -1407,6 +1402,7 @@ namespace VM {
     action: Name;
     data: Uint8Array;
     authorization: PermissionLevel[] = [];
+    actionsQueue: VM.Context[] = []
     transaction: Transaction;
     decodedData: Action
 

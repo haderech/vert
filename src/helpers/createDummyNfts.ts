@@ -1,4 +1,4 @@
-import { Account } from "../eos"
+import { Account } from "../proton"
 
 /**
  * Create a dummy NFT collection, mint NFTs to each account, and then transfer them to the author

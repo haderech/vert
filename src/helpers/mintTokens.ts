@@ -1,4 +1,4 @@
-import { Account } from "../eos"
+import { Account } from "../proton"
 
 /**
  * Create a contract, issue tokens, and transfer them to the accounts you want to mint to
