@@ -2,32 +2,18 @@ import { TableStore } from "./table";
 import { Name, Transaction, TimePoint, TimePointSec, NameType } from "@greymass/eosio";
 import { Account, AccountArgs } from "./account";
 import { VM } from "./vm";
-import log from "loglevel";
 import * as fs from "fs";
 import fetch from "cross-fetch"
-import colors from "colors/safe"
+import { ExecutionTrace } from "./types";
+import { contextToExecutionTrace, logExecutionTrace } from "./utils";
 
-const logAction = (action: VM.Context) => {
-  log.debug(colors.green(`
-  \nSTART ACTION
-Contract: ${action.receiver.name}
-Action: ${action.action}
-Inline: ${action.isInline}
-Notification: ${action.isNotification}
-First Receiver: ${action.firstReceiver.name}
-Sender: ${action.sender}
-Authorization: ${JSON.stringify(action.authorization)}
-Data: ${JSON.stringify(action.decodedData, null, 4)}
-Action Order: ${action.actionOrdinal}
-Execution Order: ${action.executionOrder}
-`))
-}
 export class Blockchain {
   accounts: { [key: string]: Account }
   timestamp: TimePoint
   store: TableStore
   console: string = ''
   actionTraces: VM.Context[] = []
+  executionTraces: ExecutionTrace[] = []
 
   constructor ({
     accounts,
@@ -81,9 +67,8 @@ export class Blockchain {
 
         // Add to action traces
         this.actionTraces.push(context)
-
-        // Log context
-        logAction(context)
+        this.executionTraces.push(contextToExecutionTrace(context))
+        logExecutionTrace(this.executionTraces[this.executionTraces.length - 1])
 
         // Execute context
         context.receiver.vm.apply(context)
@@ -205,6 +190,7 @@ export class Blockchain {
   }
 
   async resetVm () {
+    this.actionTraces = []
     await Promise.all(Object.values(this.accounts).map(account => account.recreateVm()))
   }
 

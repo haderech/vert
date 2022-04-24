@@ -1424,8 +1424,8 @@ namespace VM {
     action: Name;
     data: Uint8Array;
     authorization: PermissionLevel[] = [];
-    actionsQueue: VM.Context[] = []
-    notificationsQueue: VM.Context[] = []
+    actionsQueue: VM.Context[] = [];
+    notificationsQueue: VM.Context[] = [];
     transaction: Transaction;
     decodedData: Action
 

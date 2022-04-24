@@ -1,5 +1,8 @@
 import { Name, API, Authority, PermissionLevel } from "@greymass/eosio";
-import { AccountPermission, PermissionLevelWeight } from "./types";
+import log from "loglevel";
+import { AccountPermission, ExecutionTrace, PermissionLevelWeight } from "./types";
+import { VM } from "./vm";
+import colors from "colors/safe"
 
 /**
 * Returns the index of the last element in the array where predicate is true, and -1
@@ -80,4 +83,32 @@ export function isAuthoritySatisfied (authority: Authority, permission: Permissi
 
     return Boolean(weight >= authority.threshold.toNumber())
 }
-  
+
+export const contextToExecutionTrace = (context: VM.Context): ExecutionTrace => ({
+  contract: context.receiver.name,
+  action: context.action,
+  isInline: context.isInline,
+  isNotification: context.isNotification,
+  firstReceiver: context.firstReceiver.name,
+  sender: context.sender,
+  authorization: context.authorization,
+  data: context.decodedData,
+  actionOrder: context.actionOrdinal,
+  executionOrder: context.executionOrder
+})
+
+export const logExecutionTrace = (trace: ExecutionTrace) => {
+  log.debug(colors.green(`
+  \nSTART ACTION
+Contract: ${trace.contract}
+Action: ${trace.action}
+Inline: ${trace.isInline}
+Notification: ${trace.isNotification}
+First Receiver: ${trace.firstReceiver}
+Sender: ${trace.sender}
+Authorization: ${JSON.stringify(trace.authorization)}
+Data: ${JSON.stringify(trace.data, null, 4)}
+Action Order: ${trace.actionOrder}
+Execution Order: ${trace.executionOrder}
+`))
+}
