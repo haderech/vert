@@ -140,9 +140,7 @@ class VM extends Vert {
           assert(hasAuth, `missing required authority ${bigIntToName(name)}`);
         },
         has_auth: (_name: i64): boolean => {
-          const [name] = convertToUnsigned(_name);
-          log.debug(`has_auth: ${bigIntToName(name)}`);
-  
+          const [name] = convertToUnsigned(_name);  
           let hasAuth = false;
           for (const auth of this.context.authorization) {
             if (nameToBigInt(auth.actor) === name) {
@@ -153,6 +151,9 @@ class VM extends Vert {
               }
             }
           }
+
+          log.debug(`has_auth: ${bigIntToName(name)} = ${hasAuth}`);
+
           return hasAuth;
         },
         require_auth2: (_name: i64, _permission: i64): void => {
@@ -171,40 +172,59 @@ class VM extends Vert {
           }
           assert(hasAuth, `missing required authority ${bigIntToName(name)}@${bigIntToName(permission)}`);
         },
-        is_account: (name: i64): boolean => {
-          log.debug('is_account');
-  
+        is_account: (name: i64): boolean => {  
           const [accountNameBigInt] = convertToUnsigned(name)
           const accountName = bigIntToName(accountNameBigInt)
+
+          log.debug(`is_account: ${accountName} = ${!!this.bc.getAccount(accountName)}`);
+
           return !!this.bc.getAccount(accountName)
         },
   
-        require_recipient: (name: i64): void => {
-          log.debug('require_recipient');
-  
+        require_recipient: (name: i64): void => {  
           const [accountNameBigInt] = convertToUnsigned(name)
           const accountName = bigIntToName(accountNameBigInt)
   
+          log.debug(`require_recipient: ${accountName}`);
+
           const account = this.bc.getAccount(accountName)
           if (!account) {
             throw new Error(`Account ${accountName} missing for require_recipient`)
           }
-  
-          if (account.isContract && !account.name.equals(this.context.receiver.name)) {
-            log.debug(`-> Current: ${this.context.receiver.name}::${this.context.action}`);
-            log.debug(`-> Notify Action: ${account.name}::${this.context.action}`);
-            log.debug(`-> Notify Data Size: ${this.context.data.length}`);
-  
-            const context = new VM.Context({
-              receiver: account,
-              firstReceiver: this.context.receiver,
-              action: this.context.action,
-              data: this.context.data,
-              authorization: []
-            })
-  
-            this.bc.notificationsQueue.push(context)
+
+          const hasRecipient = this.bc.notificationsQueue.find(n => 
+            n.receiver === account && n.actionOrdinal === this.context.actionOrdinal
+          )
+          if (hasRecipient) {
+            log.debug('Skip notification: duplicate')
+            return
           }
+
+          if (!account.isContract) {
+            log.debug(`Skip notification: ${accountName} is not a contract`)
+            return
+          }
+
+          if (account.name.equals(this.context.receiver.name)) {
+            log.debug(`Skip notification: cannot notify self`)
+            return
+          }
+  
+          log.debug(`-> Current: ${this.context.receiver.name}::${this.context.action}`);
+          log.debug(`-> Notify Action: ${account.name}::${this.context.action}`);
+          log.debug(`-> Notify Data Size: ${this.context.data.length}`);
+
+          const context = new VM.Context({
+            receiver: account,
+            firstReceiver: this.context.isNotification ? this.context.firstReceiver : this.context.receiver,
+            action: this.context.action,
+            data: this.context.data,
+            authorization: [],
+            decodedData: this.context.decodedData,
+            actionOrdinal: this.context.actionOrdinal
+          })
+
+          this.bc.notificationsQueue.push(context)
         },
   
         send_inline: (action: ptr, size: i32): void => {
@@ -1395,6 +1415,8 @@ class VM extends Vert {
 namespace VM {
   export class Context {
     sender: Name = new Name(UInt64.from(0));
+    actionOrdinal: number
+    executionOrder: number
     firstReceiver: Account;
     // tx: Transaction; TODO
 

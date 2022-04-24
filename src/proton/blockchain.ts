@@ -17,7 +17,9 @@ Notification: ${action.isNotification}
 First Receiver: ${action.firstReceiver.name}
 Sender: ${action.sender}
 Authorization: ${JSON.stringify(action.authorization)}
-Data: ${JSON.stringify(action.decodedData)}
+Data: ${JSON.stringify(action.decodedData, null, 4)}
+Action Order: ${action.actionOrdinal}
+Execution Order: ${action.executionOrder}
 `))
 }
 
@@ -45,6 +47,9 @@ export class Blockchain {
   public async applyTransaction (transaction: Transaction, decodedData?: any) {
     await this.resetTransaction()
 
+    let actionOrdinal = -1
+    let executionOrder = -1
+
     for (const action of transaction.actions) {
       const contract = this.getAccount(action.account)
       if (!contract || !contract.isContract) {
@@ -63,9 +68,16 @@ export class Blockchain {
 
       let actionsQueue = [context]
 
-      while(actionsQueue.length || this.notificationsQueue.length) {
-        context = this.notificationsQueue.shift() || actionsQueue.shift()
-      
+      while(this.notificationsQueue.length || actionsQueue.length) {
+        if (this.notificationsQueue.length) {
+          context = this.notificationsQueue.shift()
+          context.actionOrdinal = actionOrdinal;
+        } else if (actionsQueue.length) {
+          context = actionsQueue.shift();
+          context.actionOrdinal = ++actionOrdinal;
+        }
+        context.executionOrder = ++executionOrder;
+
         logAction(context)
         context.receiver.vm.apply(context)
 
