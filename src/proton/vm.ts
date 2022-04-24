@@ -193,7 +193,7 @@ class VM extends Vert {
           }
 
           const hasRecipient = this.bc.actionTraces.find(n => 
-            n.receiver === account && n.actionOrdinal === this.context.actionOrdinal
+            n.isNotification && n.receiver === account && n.actionOrdinal === this.context.actionOrdinal
           )
           if (hasRecipient) {
             log.debug('Skip notification: duplicate')
