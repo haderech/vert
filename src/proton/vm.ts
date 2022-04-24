@@ -192,7 +192,7 @@ class VM extends Vert {
             throw new Error(`Account ${accountName} missing for require_recipient`)
           }
 
-          const hasRecipient = this.bc.notificationsQueue.find(n => 
+          const hasRecipient = this.bc.actionTraces.find(n => 
             n.receiver === account && n.actionOrdinal === this.context.actionOrdinal
           )
           if (hasRecipient) {
@@ -224,7 +224,7 @@ class VM extends Vert {
             actionOrdinal: this.context.actionOrdinal
           })
 
-          this.bc.notificationsQueue.push(context)
+          this.context.notificationsQueue.push(context)
         },
   
         send_inline: (action: ptr, size: i32): void => {
@@ -1425,6 +1425,7 @@ namespace VM {
     data: Uint8Array;
     authorization: PermissionLevel[] = [];
     actionsQueue: VM.Context[] = []
+    notificationsQueue: VM.Context[] = []
     transaction: Transaction;
     decodedData: Action
 

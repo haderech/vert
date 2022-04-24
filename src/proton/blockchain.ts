@@ -22,13 +22,12 @@ Action Order: ${action.actionOrdinal}
 Execution Order: ${action.executionOrder}
 `))
 }
-
 export class Blockchain {
   accounts: { [key: string]: Account }
   timestamp: TimePoint
   store: TableStore
   console: string = ''
-  notificationsQueue: VM.Context[] = []
+  actionTraces: VM.Context[] = []
 
   constructor ({
     accounts,
@@ -67,10 +66,12 @@ export class Blockchain {
       })
 
       let actionsQueue = [context]
+      let notificationsQueue = []
 
-      while(this.notificationsQueue.length || actionsQueue.length) {
-        if (this.notificationsQueue.length) {
-          context = this.notificationsQueue.shift()
+      while(notificationsQueue.length || actionsQueue.length) {
+        // Shift context and increment orders
+        if (notificationsQueue.length) {
+          context = notificationsQueue.shift()
           context.actionOrdinal = actionOrdinal;
         } else if (actionsQueue.length) {
           context = actionsQueue.shift();
@@ -78,9 +79,17 @@ export class Blockchain {
         }
         context.executionOrder = ++executionOrder;
 
+        // Add to action traces
+        this.actionTraces.push(context)
+
+        // Log context
         logAction(context)
+
+        // Execute context
         context.receiver.vm.apply(context)
 
+        // Add to local queues
+        notificationsQueue = notificationsQueue.concat(context.notificationsQueue)
         if (context.isNotification) {
           actionsQueue = actionsQueue.concat(context.actionsQueue)
         } else {
