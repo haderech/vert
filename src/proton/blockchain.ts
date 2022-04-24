@@ -191,6 +191,7 @@ export class Blockchain {
 
   async resetVm () {
     this.actionTraces = []
+    this.executionTraces = []
     await Promise.all(Object.values(this.accounts).map(account => account.recreateVm()))
   }
 
