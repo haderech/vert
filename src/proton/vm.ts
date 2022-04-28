@@ -560,6 +560,7 @@ class VM extends Vert {
         // uint128_t secondary index api
         db_idx128_store: (_scope: bigint, _table: bigint, _payer: bigint, _id: bigint, secondary: ptr): i32 => {
           const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
+
           log.debug(`db_idx128_store:  Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
 
           const itr = this.genericIndex.store(
@@ -578,9 +579,10 @@ class VM extends Vert {
           this.genericIndex.remove(this.bc.store.idx128, this.idx128, iterator);
         },
         db_idx128_find_secondary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
-          log.debug('db_idx128_find_secondary: ', SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16)));
           const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
-  
+
+          log.debug(`db_idx128_find_secondary: Code ${bigIntToName(code)} | Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
+
           return this.genericIndex.find_secondary(this.bc.store.idx128, this.idx128,
             code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
         },
