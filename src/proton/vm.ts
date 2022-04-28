@@ -559,7 +559,7 @@ class VM extends Vert {
   
         // uint128_t secondary index api
         db_idx128_store: (_scope: bigint, _table: bigint, _payer: bigint, _id: bigint, secondary: ptr): i32 => {
-          log.debug(`db_idx128_store:  Scope ${bigIntToName(_scope)} | Table ${bigIntToName(_table)} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
+          log.debug(`db_idx128_store:  Scope ${bigIntToName(_scope)} | Table ${_table} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
           const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
   
           const itr = this.genericIndex.store(
