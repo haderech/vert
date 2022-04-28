@@ -360,7 +360,7 @@ class DeleteSecondaryKeyChange implements StoreChange {
   }
   revert(store) {
     log.debug('revert secondary key deletion');
-    if (!this.keystore.get(this.key)) {
+    if (this.keystore.get(this.key)) {
       throw new Error('revert stack is corrupted');
     }
     this.keystore.set(undefined, this.key, true);
