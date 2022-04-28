@@ -559,9 +559,9 @@ class VM extends Vert {
   
         // uint128_t secondary index api
         db_idx128_store: (_scope: bigint, _table: bigint, _payer: bigint, _id: bigint, secondary: ptr): i32 => {
-          log.debug(`db_idx128_store:  Scope ${bigIntToName(_scope)} | Table ${_table} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
           const [scope, table, payer, id] = convertToUnsigned(_scope, _table, _payer, _id);
-  
+          log.debug(`db_idx128_store:  Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
+
           const itr = this.genericIndex.store(
             this.bc.store.idx128, this.idx128,
             scope, table, payer, id, Buffer.from_(this.memory.buffer, secondary, 16), SecondaryKeyConverter.uint128);
@@ -585,23 +585,26 @@ class VM extends Vert {
             code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
         },
         db_idx128_find_primary: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, _primary: bigint): i32 => {
-          log.debug(`db_idx128_find_primary: Code ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${_table} | Primary ${_primary} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
           const [code, scope, table, primaryKey] = convertToUnsigned(_code, _scope, _table, _primary);
   
+          log.debug(`db_idx128_find_primary: Code ${bigIntToName(code)} | Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | Primary ${primaryKey} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
+
           return this.genericIndex.find_primary(this.bc.store.idx128, this.idx128,
             code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primaryKey, SecondaryKeyConverter.uint128);
         },
         db_idx128_lowerbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
-          log.debug(`db_idx128_lowerbound: Code ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${_table} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
           const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
   
+          log.debug(`db_idx128_lowerbound: Code ${bigIntToName(code)} | Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
+
           return this.genericIndex.lowerbound_secondary(this.bc.store.idx128, this.idx128,
             code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
         },
         db_idx128_upperbound: (_code: bigint, _scope: bigint, _table: bigint, secondary: ptr, primary: ptr): i32 => {
-          log.debug(`db_idx128_upperbound: Code ${bigIntToName(_code)} | Scope ${bigIntToName(_scope)} | Table ${_table} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
           const [code, scope, table] = convertToUnsigned(_code, _scope, _table);
   
+          log.debug(`db_idx128_upperbound: Code ${bigIntToName(code)} | Scope ${bigIntToName(scope)} | Table ${bigIntToName(table)} | Secondary ${SecondaryKeyConverter.uint128.from(Buffer.from_(this.memory.buffer, secondary, 16))}`)
+
           return this.genericIndex.upperbound_secondary(this.bc.store.idx128, this.idx128,
             code, scope, table, Buffer.from_(this.memory.buffer, secondary, 16), primary, SecondaryKeyConverter.uint128);
         },
