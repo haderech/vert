@@ -16,7 +16,7 @@ abstract class PrefixedStore<K,V> {
   set(key: K, value: V) {
     this.store.set(this.key(key), value, this);
   }
-  get(key: K): V {
+  get(key: K): V | undefined {
     return this.store.get(this.key(key));
   }
   delete(key: K) {
@@ -267,7 +267,7 @@ class DeleteItemChange implements StoreChange {
   }
   revert(store) {
     log.debug('revert item deletion');
-    if (!store.internal.has(this.key)) {
+    if (store.internal.has(this.key)) {
       throw new Error('revert stack is corrupted');
     }
     store.internal.set(this.key, this.value);
