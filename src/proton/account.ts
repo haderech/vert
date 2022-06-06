@@ -19,11 +19,16 @@ function isPromise(promise: any) {
 export class Account {
   readonly name: Name;
   readonly bc: Blockchain;
-  readonly creationTime: TimePoint
+  readonly creationTime: TimePoint;
 
-
-  readonly actions: any = {};
-  readonly tables: { [key: string]: (scope?: bigint) => TableView } = {};
+  readonly actions: {
+    [key: string]: (actionData?: any[] | object) => {
+      send: (authorization?: string | PermissionLevelType | PermissionLevelType[], options?: Partial<TransactionHeader>) => Promise<void>
+    }
+  } = {};
+  readonly tables: {
+    [key: string]: (scope?: bigint) => TableView
+  } = {};
   readonly permissions: API.v1.AccountPermission[] = [];
 
   public wasm?: Uint8Array;
@@ -102,21 +107,25 @@ export class Account {
         }).array;
 
         return {
-          send: async (authorization?: PermissionLevelType, options: Partial<TransactionHeader> = {}) => {
+          send: async (authorization?: string | PermissionLevelType | PermissionLevelType[], options?: Partial<TransactionHeader>) => {
+            if (!authorization) {
+              authorization = {
+                actor: this.name,
+                permission: 'active'
+              }
+            }
+
             await this.bc.applyTransaction(Transaction.from({
               actions: [{
                 account: this.name,
                 name: Name.from(action.name),
                 data: serializedData,
-                authorization: [PermissionLevel.from(authorization || {
-                  actor: this.name,
-                  permission: 'active'
-                })]
+                authorization: (Array.isArray(authorization) ? authorization : [authorization]).map(_ => PermissionLevel.from(_))
               }],
               expiration: 0,
               ref_block_num: 0,
               ref_block_prefix: 0,
-              ...options
+              ...(options || {})
             }), data)
           }
         }
